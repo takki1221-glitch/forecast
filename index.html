@@ -1,0 +1,114 @@
+<!DOCTYPE html>
+<html lang="zh-TW" data-theme="dark">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>訂單預估系統</title>
+<style>
+  :root[data-theme="dark"] {
+    --bg: #0f1117; --surface: #1a1d27; --border: #2e3350;
+    --text: #e8eaf6; --text2: #9aa0c4; --text3: #5a6080;
+    --card-hover: #1e2235;
+  }
+  :root[data-theme="light"] {
+    --bg: #f0f4f8; --surface: #ffffff; --border: #d1d9e0;
+    --text: #1a202c; --text2: #4a5568; --text3: #a0aec0;
+    --card-hover: #f7fafc;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', 'Noto Sans TC', sans-serif; min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; padding: 24px; transition: background .3s, color .3s; }
+
+  /* Theme toggle */
+  .theme-toggle { position: fixed; top: 20px; right: 20px; background: var(--surface); border: 1px solid var(--border); border-radius: 20px; padding: 8px 16px; cursor: pointer; font-size: 14px; font-weight: 600; color: var(--text2); display: flex; align-items: center; gap: 8px; transition: all .2s; }
+  .theme-toggle:hover { color: var(--text); border-color: var(--text3); }
+
+  .title    { font-size: 14px; font-weight: 700; color: var(--text3); letter-spacing: .12em; text-transform: uppercase; margin-bottom: 12px; }
+  h1        { font-size: 32px; font-weight: 800; letter-spacing: -0.5px; margin-bottom: 10px; }
+  .subtitle { font-size: 16px; color: var(--text2); margin-bottom: 52px; }
+
+  .cards { display: flex; gap: 24px; flex-wrap: wrap; justify-content: center; }
+
+  .card { background: var(--surface); border: 1px solid var(--border); border-radius: 18px; padding: 36px 40px; width: 280px; cursor: pointer; text-decoration: none; color: inherit; transition: all .2s; display: flex; flex-direction: column; align-items: flex-start; gap: 14px; }
+  .card:hover { background: var(--card-hover); transform: translateY(-4px); box-shadow: 0 10px 36px rgba(0,0,0,.15); }
+
+  .card-logo  { width: 54px; height: 54px; border-radius: 16px; display: flex; align-items: center; justify-content: center; font-weight: 800; font-size: 22px; color: #fff; }
+  .logo-w     { background: linear-gradient(135deg,#2563eb,#7c3aed); }
+  .logo-k     { background: linear-gradient(135deg,#e53e3e,#c53030); }
+
+  .card-brand { font-size: 13px; font-weight: 700; color: var(--text3); letter-spacing: .08em; text-transform: uppercase; }
+  .card-name  { font-size: 20px; font-weight: 700; }
+  .card-desc  { font-size: 14px; color: var(--text2); line-height: 1.7; }
+
+  .card-tags  { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 4px; }
+  .tag        { padding: 4px 9px; border-radius: 5px; font-size: 12px; font-weight: 600; background: rgba(59,130,246,.12); color: #3b82f6; }
+  .tag-red    { background: rgba(239,68,68,.12); color: #ef4444; }
+
+  .card-arrow { margin-top: 8px; font-size: 20px; color: var(--text3); align-self: flex-end; transition: transform .2s; }
+  .card:hover .card-arrow { transform: translateX(5px); color: var(--text2); }
+
+  .footer { margin-top: 52px; font-size: 13px; color: var(--text3); }
+</style>
+</head>
+<body>
+
+<button class="theme-toggle" onclick="toggleTheme()" id="themeBtn">🌙 暗色模式</button>
+
+<div class="title">庫存管理平台</div>
+<h1>訂單預估系統</h1>
+<p class="subtitle">庫存管理 · 銷售預測 · 採購建議</p>
+
+<div class="cards">
+
+  <a class="card" href="./wakamoto.html">
+    <div class="card-logo logo-w">若</div>
+    <div class="card-brand">Wakamoto</div>
+    <div class="card-name">若元系列</div>
+    <div class="card-desc">胃腸錠 · 益生菌<br>6個 SKU</div>
+    <div class="card-tags">
+      <span class="tag">330T</span>
+      <span class="tag">960T</span>
+      <span class="tag">1000T</span>
+      <span class="tag">350T</span>
+      <span class="tag">200T</span>
+      <span class="tag">220T</span>
+    </div>
+    <div class="card-arrow">→</div>
+  </a>
+
+  <a class="card" href="./kaigen.html">
+    <div class="card-logo logo-k">改</div>
+    <div class="card-brand">Kaigen</div>
+    <div class="card-name">改源系列</div>
+    <div class="card-desc">IB止痛 · 感冒系列<br>5個 SKU</div>
+    <div class="card-tags">
+      <span class="tag tag-red">IB 8包</span>
+      <span class="tag tag-red">IB 16包</span>
+      <span class="tag tag-red">IB 24入</span>
+      <span class="tag tag-red">感冒顆粒</span>
+      <span class="tag tag-red">感冒錠</span>
+    </div>
+    <div class="card-arrow">→</div>
+  </a>
+
+</div>
+
+<div class="footer">© 2026 · 訂單預估系統</div>
+
+<script>
+  // 讀取儲存的主題
+  const saved = localStorage.getItem('theme') || 'dark';
+  setTheme(saved);
+
+  function setTheme(theme) {
+    document.documentElement.setAttribute('data-theme', theme);
+    document.getElementById('themeBtn').textContent = theme === 'dark' ? '☀️ 亮色模式' : '🌙 暗色模式';
+    localStorage.setItem('theme', theme);
+  }
+
+  function toggleTheme() {
+    const current = document.documentElement.getAttribute('data-theme');
+    setTheme(current === 'dark' ? 'light' : 'dark');
+  }
+</script>
+</body>
+</html>
