@@ -1,0 +1,968 @@
+<!DOCTYPE html>
+<html lang="zh-TW">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>改源 Kaigen — 訂單預估系統</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root {
+    --bg: #0f1117; --surface: #1a1d27; --surface2: #22263a;
+    --border: #2e3350; --text: #e8eaf6; --text2: #9aa0c4; --text3: #5a6080;
+    --blue: #3b82f6; --green: #22c55e; --yellow: #f59e0b; --red: #ef4444;
+    --accent: #7c3aed; --accent2: #06b6d4;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', 'Noto Sans TC', sans-serif; font-size: 14px; min-height: 100vh; }
+
+  /* Header */
+  .header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 14px 24px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; }
+  .header-left { display: flex; align-items: center; gap: 14px; }
+  .logo { width: 36px; height: 36px; background: linear-gradient(135deg,#e53e3e,#c53030); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-weight: 800; color: #fff; font-size: 16px; }
+  .header-title h1 { font-size: 17px; font-weight: 700; letter-spacing: -0.3px; }
+  .header-title p  { font-size: 12px; color: var(--text2); margin-top: 1px; }
+  .header-right { display: flex; align-items: center; gap: 10px; }
+  .status-badge { padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; border: 1px solid; }
+  .status-ok    { background: rgba(34,197,94,.1); color: var(--green); border-color: rgba(34,197,94,.3); }
+  .status-error { background: rgba(239,68,68,.1);  color: var(--red);   border-color: rgba(239,68,68,.3); }
+  .status-loading { background: rgba(245,158,11,.1); color: var(--yellow); border-color: rgba(245,158,11,.3); }
+  .btn { padding: 7px 16px; border-radius: 8px; border: none; cursor: pointer; font-size: 13px; font-weight: 600; }
+  .btn-primary { background: var(--blue); color: #fff; }
+  .btn-primary:hover { background: #2563eb; }
+
+  /* Tabs */
+  .tabs { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 24px; display: flex; align-items: center; gap: 2px; overflow-x: auto; }
+  .tab-group-label { padding: 10px 8px 0; font-size: 11px; font-weight: 700; color: var(--text3); letter-spacing: .08em; text-transform: uppercase; white-space: nowrap; align-self: flex-end; padding-bottom: 4px; }
+  .tab-divider { width: 1px; background: var(--border); margin: 8px 4px 4px; align-self: stretch; }
+  .tab-btn { padding: 12px 16px; background: none; border: none; border-bottom: 2px solid transparent; color: var(--text2); cursor: pointer; font-size: 13px; font-weight: 500; white-space: nowrap; transition: all .2s; }
+  .tab-btn:hover { color: var(--text); }
+  .tab-btn.active { color: var(--blue); border-bottom-color: var(--blue); font-weight: 600; }
+
+  /* Main */
+  .main { padding: 24px; max-width: 1600px; margin: 0 auto; }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  /* Settings bar */
+  .settings-bar { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px 20px; display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; margin-bottom: 20px; }
+  .setting-group { display: flex; flex-direction: column; gap: 5px; }
+  .setting-group label { font-size: 11px; color: var(--text2); font-weight: 600; text-transform: uppercase; letter-spacing: .05em; }
+  .setting-group input, .setting-group select { background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; color: var(--text); padding: 6px 10px; font-size: 13px; width: 120px; }
+  .setting-group select { width: 150px; }
+
+  /* KPI */
+  .kpi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(160px, 1fr)); gap: 12px; margin-bottom: 20px; }
+  .kpi-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+  .kpi-label { font-size: 11px; color: var(--text2); font-weight: 600; text-transform: uppercase; letter-spacing: .05em; margin-bottom: 8px; }
+  .kpi-value { font-size: 22px; font-weight: 700; font-family: 'JetBrains Mono', monospace; letter-spacing: -1px; }
+  .kpi-sub   { font-size: 11px; color: var(--text3); margin-top: 4px; }
+  .kpi-blue   { color: var(--blue); }
+  .kpi-green  { color: var(--green); }
+  .kpi-yellow { color: var(--yellow); }
+  .kpi-red    { color: var(--red); }
+
+  /* Charts */
+  .chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 16px; }
+  .chart-title { font-size: 13px; font-weight: 600; color: var(--text2); margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--blue); display: inline-block; }
+  .chart-wrap { height: 240px; position: relative; }
+
+  /* Table */
+  .table-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; margin-bottom: 16px; }
+  .table-header { padding: 14px 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+  .table-title { font-size: 14px; font-weight: 600; }
+  .table-scroll { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th { background: var(--surface2); color: var(--text2); font-weight: 600; padding: 8px 10px; text-align: center; border-bottom: 1px solid var(--border); white-space: nowrap; font-size: 11px; text-transform: uppercase; letter-spacing: .04em; }
+  td { padding: 7px 10px; text-align: right; border-bottom: 1px solid rgba(46,51,80,.5); font-family: 'JetBrains Mono', monospace; font-size: 12px; white-space: nowrap; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(59,130,246,.04); }
+  .forecast-row td { color: var(--text2); }
+  .col-left   { text-align: left !important; font-family: inherit !important; font-weight: 500; }
+  .col-center { text-align: center !important; font-family: inherit !important; }
+  .month-tag  { display: inline-block; padding: 2px 7px; border-radius: 4px; font-size: 10px; font-weight: 700; letter-spacing: .04em; }
+  .tag-hist     { background: rgba(90,96,128,.2); color: var(--text3); }
+  .tag-current  { background: rgba(34,197,94,.15); color: var(--green); }
+  .tag-forecast { background: rgba(59,130,246,.12); color: var(--blue); }
+  .danger { color: var(--red) !important; }
+  .warn   { color: var(--yellow) !important; }
+  .good   { color: var(--green) !important; }
+  td.editable { background: rgba(22,163,74,.07); cursor: pointer; }
+  td.editable:hover { background: rgba(22,163,74,.14); }
+  td.editable input { background: transparent; border: none; outline: none; color: var(--text); font-family: 'JetBrains Mono', monospace; font-size: 12px; width: 80px; text-align: right; }
+  td.arrival-editable { background: rgba(22,163,74,.10) !important; cursor: pointer; }
+  td.arrival-editable:hover { background: rgba(22,163,74,.18) !important; }
+  td.arrival-editable input::placeholder { color: var(--text3); }
+  .label-cell { color: var(--yellow) !important; }
+
+  /* Schedule */
+  .section-title { font-size: 14px; font-weight: 700; color: var(--text2); margin: 20px 0 10px; letter-spacing: .04em; text-transform: uppercase; }
+  .schedule-table { margin-bottom: 24px; }
+  .info-box { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px 20px; color: var(--text2); font-size: 13px; }
+
+  /* Save indicator */
+  .save-indicator { font-size: 11px; color: var(--green); opacity: 0; transition: opacity .3s; }
+  .save-indicator.visible { opacity: 1; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <div class="logo">改</div>
+    <div class="header-title">
+      <h1>改源 Kaigen — 訂單預估系統</h1>
+      <p>IB止痛 · 感冒系列 | 庫存管理 · 銷售預測 · 採購建議</p>
+    </div>
+  </div>
+  <div class="header-right">
+    <span class="status-badge status-loading" id="syncStatus">⏳ 載入中...</span>
+    <button class="btn btn-primary" onclick="saveAllSettings()">💾 儲存設定</button>
+  </div>
+</div>
+
+<div class="tabs">
+  <span class="tab-group-label">IB止痛</span>
+  <button class="tab-btn active" onclick="switchTab('tab-ib8')">8包</button>
+  <button class="tab-btn" onclick="switchTab('tab-ib16')">16包</button>
+  <button class="tab-btn" onclick="switchTab('tab-ib24')">24入</button>
+  <span class="tab-divider"></span>
+  <span class="tab-group-label">感冒</span>
+  <button class="tab-btn" onclick="switchTab('tab-cold-gran')">感冒顆粒</button>
+  <button class="tab-btn" onclick="switchTab('tab-cold-tab')">感冒錠</button>
+</div>
+
+<div class="main">
+
+<!-- ─── IB止痛_8包 ─── -->
+<div id="tab-ib8" class="tab-panel">
+  <div class="settings-bar">
+    <div class="setting-group"><label>安全庫存月份</label>
+      <input type="number" id="ss-ib8" value="1.5" min="0" max="12" step="0.5" onchange="recalc('ib8')">
+    </div>
+    <div class="setting-group"><label>預測月數</label>
+      <select id="fmonths-ib8" onchange="recalc('ib8')">
+        <option value="12">12個月</option><option value="24" selected>24個月</option><option value="36">36個月</option>
+      </select>
+    </div>
+    <div class="setting-group"><label>批次量</label>
+      <input type="number" id="batch-ib8" value="24460" min="1" step="1" onchange="recalc('ib8')">
+    </div>
+    <div class="setting-group"><label>單次下單上限 (批)</label>
+      <input type="number" id="maxbatch-ib8" value="3" min="1" step="1" onchange="recalc('ib8')">
+    </div>
+    <div class="setting-group"><label>每月到貨上限 (批)</label>
+      <input type="number" id="maxarrival-ib8" value="3" min="1" step="1" onchange="recalc('ib8')">
+    </div>
+    <div class="setting-group"><label>成長率基準</label>
+      <select id="growthbase-ib8" onchange="recalc('ib8')">
+        <option value="yoy" selected>同期實際成長率</option>
+        <option value="preset">預設成長率</option>
+        <option value="custom">自訂固定率</option>
+      </select>
+    </div>
+    <div class="setting-group"><label>自訂成長率</label>
+      <input type="number" id="customgrowth-ib8" value="1.0" min="0" step="0.01" onchange="recalc('ib8')">
+    </div>
+    <button class="btn btn-primary" onclick="recalc('ib8')">🔄 重新計算</button>
+  </div>
+  <div id="kpi-ib8" class="kpi-grid"></div>
+  <div class="chart-card">
+    <div class="chart-title"><span class="dot"></span>庫存水位 · 出貨量 · 安全庫存線</div>
+    <div class="chart-wrap"><canvas id="chart-inv-ib8"></canvas></div>
+  </div>
+  <div class="chart-card">
+    <div class="chart-title"><span class="dot" style="background:var(--green)"></span>歷史 vs 預測出貨量</div>
+    <div class="chart-wrap"><canvas id="chart-ship-ib8"></canvas></div>
+  </div>
+  <div class="table-card">
+    <div class="table-header">
+      <span class="table-title">詳細資料表 — IB止痛_8包</span>
+      <span class="save-indicator" id="saved-ib8">✓ 已儲存</span>
+    </div>
+    <div class="table-scroll"><div id="table-ib8"></div></div>
+  </div>
+  <div class="section-title">建議下單排程</div>
+  <div id="order-ib8" class="schedule-table"></div>
+</div>
+
+<!-- ─── IB止痛_16包 ─── -->
+<div id="tab-ib16" class="tab-panel">
+  <div class="settings-bar">
+    <div class="setting-group"><label>安全庫存月份</label>
+      <input type="number" id="ss-ib16" value="1.5" min="0" max="12" step="0.5" onchange="recalc('ib16')">
+    </div>
+    <div class="setting-group"><label>預測月數</label>
+      <select id="fmonths-ib16" onchange="recalc('ib16')">
+        <option value="12">12個月</option><option value="24" selected>24個月</option><option value="36">36個月</option>
+      </select>
+    </div>
+    <div class="setting-group"><label>批次量</label>
+      <input type="number" id="batch-ib16" value="12230" min="1" step="1" onchange="recalc('ib16')">
+    </div>
+    <div class="setting-group"><label>單次下單上限 (批)</label>
+      <input type="number" id="maxbatch-ib16" value="3" min="1" step="1" onchange="recalc('ib16')">
+    </div>
+    <div class="setting-group"><label>每月到貨上限 (批)</label>
+      <input type="number" id="maxarrival-ib16" value="3" min="1" step="1" onchange="recalc('ib16')">
+    </div>
+    <div class="setting-group"><label>成長率基準</label>
+      <select id="growthbase-ib16" onchange="recalc('ib16')">
+        <option value="yoy" selected>同期實際成長率</option>
+        <option value="preset">預設成長率</option>
+        <option value="custom">自訂固定率</option>
+      </select>
+    </div>
+    <div class="setting-group"><label>自訂成長率</label>
+      <input type="number" id="customgrowth-ib16" value="1.0" min="0" step="0.01" onchange="recalc('ib16')">
+    </div>
+    <button class="btn btn-primary" onclick="recalc('ib16')">🔄 重新計算</button>
+  </div>
+  <div id="kpi-ib16" class="kpi-grid"></div>
+  <div class="chart-card">
+    <div class="chart-title"><span class="dot"></span>庫存水位 · 出貨量 · 安全庫存線</div>
+    <div class="chart-wrap"><canvas id="chart-inv-ib16"></canvas></div>
+  </div>
+  <div class="chart-card">
+    <div class="chart-title"><span class="dot" style="background:var(--green)"></span>歷史 vs 預測出貨量</div>
+    <div class="chart-wrap"><canvas id="chart-ship-ib16"></canvas></div>
+  </div>
+  <div class="table-card">
+    <div class="table-header">
+      <span class="table-title">詳細資料表 — IB止痛_16包</span>
+      <span class="save-indicator" id="saved-ib16">✓ 已儲存</span>
+    </div>
+    <div class="table-scroll"><div id="table-ib16"></div></div>
+  </div>
+  <div class="section-title">建議下單排程</div>
+  <div id="order-ib16" class="schedule-table"></div>
+</div>
+
+<!-- ─── IB止痛_24入 ─── -->
+<div id="tab-ib24" class="tab-panel">
+  <div class="settings-bar">
+    <div class="setting-group"><label>安全庫存月份</label>
+      <input type="number" id="ss-ib24" value="1.5" min="0" max="12" step="0.5" onchange="recalc('ib24')">
+    </div>
+    <div class="setting-group"><label>預測月數</label>
+      <select id="fmonths-ib24" onchange="recalc('ib24')">
+        <option value="12">12個月</option><option value="24" selected>24個月</option><option value="36">36個月</option>
+      </select>
+    </div>
+    <div class="setting-group"><label>批次量</label>
+      <input type="number" id="batch-ib24" value="8150" min="1" step="1" onchange="recalc('ib24')">
+    </div>
+    <div class="setting-group"><label>單次下單上限 (批)</label>
+      <input type="number" id="maxbatch-ib24" value="3" min="1" step="1" onchange="recalc('ib24')">
+    </div>
+    <div class="setting-group"><label>每月到貨上限 (批)</label>
+      <input type="number" id="maxarrival-ib24" value="3" min="1" step="1" onchange="recalc('ib24')">
+    </div>
+    <div class="setting-group"><label>成長率基準</label>
+      <select id="growthbase-ib24" onchange="recalc('ib24')">
+        <option value="yoy">同期實際成長率</option>
+        <option value="preset" selected>預設成長率</option>
+        <option value="custom">自訂固定率</option>
+      </select>
+    </div>
+    <div class="setting-group"><label>自訂成長率</label>
+      <input type="number" id="customgrowth-ib24" value="1.0" min="0" step="0.01" onchange="recalc('ib24')">
+    </div>
+    <button class="btn btn-primary" onclick="recalc('ib24')">🔄 重新計算</button>
+  </div>
+  <div id="kpi-ib24" class="kpi-grid"></div>
+  <div class="chart-card">
+    <div class="chart-title"><span class="dot"></span>庫存水位 · 出貨量 · 安全庫存線</div>
+    <div class="chart-wrap"><canvas id="chart-inv-ib24"></canvas></div>
+  </div>
+  <div class="chart-card">
+    <div class="chart-title"><span class="dot" style="background:var(--green)"></span>歷史 vs 預測出貨量</div>
+    <div class="chart-wrap"><canvas id="chart-ship-ib24"></canvas></div>
+  </div>
+  <div class="table-card">
+    <div class="table-header">
+      <span class="table-title">詳細資料表 — IB止痛_24入</span>
+      <span class="save-indicator" id="saved-ib24">✓ 已儲存</span>
+    </div>
+    <div class="table-scroll"><div id="table-ib24"></div></div>
+  </div>
+  <div class="section-title">建議下單排程</div>
+  <div id="order-ib24" class="schedule-table"></div>
+</div>
+
+<!-- ─── 感冒顆粒 ─── -->
+<div id="tab-cold-gran" class="tab-panel">
+  <div class="settings-bar">
+    <div class="setting-group"><label>安全庫存月份</label>
+      <input type="number" id="ss-cold-gran" value="1.5" min="0" max="12" step="0.5" onchange="recalc('cold-gran')">
+    </div>
+    <div class="setting-group"><label>預測月數</label>
+      <select id="fmonths-cold-gran" onchange="recalc('cold-gran')">
+        <option value="12">12個月</option><option value="24" selected>24個月</option><option value="36">36個月</option>
+      </select>
+    </div>
+    <div class="setting-group"><label>批次量</label>
+      <input type="number" id="batch-cold-gran" value="31380" min="1" step="1" onchange="recalc('cold-gran')">
+    </div>
+    <div class="setting-group"><label>單次下單上限 (批)</label>
+      <input type="number" id="maxbatch-cold-gran" value="1" min="1" step="1" onchange="recalc('cold-gran')">
+    </div>
+    <div class="setting-group"><label>每月到貨上限 (批)</label>
+      <input type="number" id="maxarrival-cold-gran" value="1" min="1" step="1" onchange="recalc('cold-gran')">
+    </div>
+    <div class="setting-group"><label>成長率基準</label>
+      <select id="growthbase-cold-gran" onchange="recalc('cold-gran')">
+        <option value="yoy" selected>同期實際成長率</option>
+        <option value="preset">預設成長率</option>
+        <option value="custom">自訂固定率</option>
+      </select>
+    </div>
+    <div class="setting-group"><label>自訂成長率</label>
+      <input type="number" id="customgrowth-cold-gran" value="1.0" min="0" step="0.01" onchange="recalc('cold-gran')">
+    </div>
+    <button class="btn btn-primary" onclick="recalc('cold-gran')">🔄 重新計算</button>
+  </div>
+  <div id="kpi-cold-gran" class="kpi-grid"></div>
+  <div class="chart-card">
+    <div class="chart-title"><span class="dot"></span>庫存水位 · 出貨量 · 安全庫存線</div>
+    <div class="chart-wrap"><canvas id="chart-inv-cold-gran"></canvas></div>
+  </div>
+  <div class="chart-card">
+    <div class="chart-title"><span class="dot" style="background:var(--green)"></span>歷史 vs 預測出貨量</div>
+    <div class="chart-wrap"><canvas id="chart-ship-cold-gran"></canvas></div>
+  </div>
+  <div class="table-card">
+    <div class="table-header">
+      <span class="table-title">詳細資料表 — 感冒顆粒</span>
+      <span class="save-indicator" id="saved-cold-gran">✓ 已儲存</span>
+    </div>
+    <div class="table-scroll"><div id="table-cold-gran"></div></div>
+  </div>
+  <div class="section-title">建議下單排程</div>
+  <div id="order-cold-gran" class="schedule-table"></div>
+</div>
+
+<!-- ─── 感冒錠 ─── -->
+<div id="tab-cold-tab" class="tab-panel">
+  <div class="settings-bar">
+    <div class="setting-group"><label>安全庫存月份</label>
+      <input type="number" id="ss-cold-tab" value="1.5" min="0" max="12" step="0.5" onchange="recalc('cold-tab')">
+    </div>
+    <div class="setting-group"><label>預測月數</label>
+      <select id="fmonths-cold-tab" onchange="recalc('cold-tab')">
+        <option value="12">12個月</option><option value="24" selected>24個月</option><option value="36">36個月</option>
+      </select>
+    </div>
+    <div class="setting-group"><label>批次量</label>
+      <input type="number" id="batch-cold-tab" value="50000" min="1" step="1" onchange="recalc('cold-tab')">
+    </div>
+    <div class="setting-group"><label>單次下單上限 (批)</label>
+      <input type="number" id="maxbatch-cold-tab" value="1" min="1" step="1" onchange="recalc('cold-tab')">
+    </div>
+    <div class="setting-group"><label>每月到貨上限 (批)</label>
+      <input type="number" id="maxarrival-cold-tab" value="1" min="1" step="1" onchange="recalc('cold-tab')">
+    </div>
+    <div class="setting-group"><label>成長率基準</label>
+      <select id="growthbase-cold-tab" onchange="recalc('cold-tab')">
+        <option value="yoy" selected>同期實際成長率</option>
+        <option value="preset">預設成長率</option>
+        <option value="custom">自訂固定率</option>
+      </select>
+    </div>
+    <div class="setting-group"><label>自訂成長率</label>
+      <input type="number" id="customgrowth-cold-tab" value="1.0" min="0" step="0.01" onchange="recalc('cold-tab')">
+    </div>
+    <button class="btn btn-primary" onclick="recalc('cold-tab')">🔄 重新計算</button>
+  </div>
+  <div id="kpi-cold-tab" class="kpi-grid"></div>
+  <div class="chart-card">
+    <div class="chart-title"><span class="dot"></span>庫存水位 · 出貨量 · 安全庫存線</div>
+    <div class="chart-wrap"><canvas id="chart-inv-cold-tab"></canvas></div>
+  </div>
+  <div class="chart-card">
+    <div class="chart-title"><span class="dot" style="background:var(--green)"></span>歷史 vs 預測出貨量</div>
+    <div class="chart-wrap"><canvas id="chart-ship-cold-tab"></canvas></div>
+  </div>
+  <div class="table-card">
+    <div class="table-header">
+      <span class="table-title">詳細資料表 — 感冒錠</span>
+      <span class="save-indicator" id="saved-cold-tab">✓ 已儲存</span>
+    </div>
+    <div class="table-scroll"><div id="table-cold-tab"></div></div>
+  </div>
+  <div class="section-title">建議下單排程</div>
+  <div id="order-cold-tab" class="schedule-table"></div>
+</div>
+
+</div><!-- .main -->
+<script>
+// ══════════════════════════════════════════════
+//  設定
+// ══════════════════════════════════════════════
+const SHEET_ID = '1zbRsTijv1HNbHu1OQPyZ76lvdRuN4LeJx9CO_jRtbvQ';
+const SHEET_MAP = {
+  'ib8':       'IB止痛_8包',
+  'ib16':      'IB止痛_16包',
+  'ib24':      'IB止痛_24入',
+  'cold-gran': '感冒顆粒',
+  'cold-tab':  '感冒錠',
+};
+const BATCH_DEFAULTS = { 'ib8': 24460, 'ib16': 12230, 'ib24': 8150, 'cold-gran': 31380, 'cold-tab': 50000 };
+const CHANNEL_SKUS = ['ib8', 'ib16', 'cold-gran', 'cold-tab']; // 有通路明細
+let CUTOFF = '2026-04';
+
+// ══════════════════════════════════════════════
+//  資料
+// ══════════════════════════════════════════════
+let RAW = {};
+let charts = {};
+let overrides = {};
+let arrivalOverrides = {};
+
+// ══════════════════════════════════════════════
+//  工具函式
+// ══════════════════════════════════════════════
+function fmt(v)    { if (v == null || v === '') return '—'; return Math.round(v).toLocaleString(); }
+function fmtPct(v) { if (v == null) return '—'; return (v * 100).toFixed(1) + '%'; }
+
+function addMonths(ym, n) {
+  let [y, m] = ym.split('-').map(Number);
+  m += n;
+  while (m > 12) { m -= 12; y++; }
+  while (m < 1)  { m += 12; y--; }
+  return `${y}-${String(m).padStart(2,'0')}`;
+}
+
+function flashSaved(sku) {
+  const el = document.getElementById('saved-' + sku);
+  if (!el) return;
+  el.classList.add('visible');
+  setTimeout(() => el.classList.remove('visible'), 2000);
+}
+
+function setStatus(state, msg) {
+  const el = document.getElementById('syncStatus');
+  if (state === 'ok')      { el.className = 'status-badge status-ok';      el.textContent = '✓ 已同步 Sheets ' + (msg||''); }
+  else if (state === 'error') { el.className = 'status-badge status-error'; el.textContent = '✗ 資料載入失敗'; }
+  else                     { el.className = 'status-badge status-loading';  el.textContent = '⏳ 載入中...'; }
+}
+
+// ══════════════════════════════════════════════
+//  CSV 解析
+// ══════════════════════════════════════════════
+function parseCSVLine(line) {
+  const cols = []; let cur = '', inQ = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (c === '"') { inQ = !inQ; }
+    else if (c === ',' && !inQ) { cols.push(cur.trim()); cur = ''; }
+    else { cur += c; }
+  }
+  cols.push(cur.trim());
+  return cols.map(c => c.replace(/^"|"$/g, '').trim());
+}
+
+function parseCSV(csvText, sku) {
+  const lines = csvText.split('\n').map(l => l.trim()).filter(l => l);
+  const isChannel = CHANNEL_SKUS.includes(sku);
+  let result;
+  if (isChannel) {
+    // 月份|Watsons|COSMED|Tomods|日藥|松本清|連鎖|傳統|員購與百貨|總出貨|實際到貨|期末庫存|預設|實際|備註
+    result = { months:[], watsons:[], cosmed:[], tomods:[], nihon:[], matsu:[],
+               chain:[], trad:[], emp:[], total:[], arrival:[], inv:[], preset:[], actual:[], batchQty:0 };
+  } else {
+    // 月份|出貨量|實際到貨量|期末庫存|預設成長率|實際成長率|備註
+    result = { months:[], ship:[], arrival:[], inv:[], preset:[], actual:[], batchQty:0 };
+  }
+
+  for (const line of lines) {
+    const cols = parseCSVLine(line);
+    if (cols[0] === '# 批次量' && cols[1]) { result.batchQty = parseInt(cols[1]) || 0; continue; }
+    if (!cols[0] || cols[0].startsWith('#') || cols[0] === '月份') continue;
+    if (!/^\d{4}-\d{2}$/.test(cols[0])) continue;
+    const n = v => (v !== '' && v != null) ? parseInt(v) || null : null;
+    const f = v => (v !== '' && v != null) ? parseFloat(v) || null : null;
+    result.months.push(cols[0]);
+    if (isChannel) {
+      result.watsons.push(n(cols[1]));
+      result.cosmed.push(n(cols[2]));
+      result.tomods.push(n(cols[3]));
+      result.nihon.push(n(cols[4]));
+      result.matsu.push(n(cols[5]));
+      result.chain.push(n(cols[6]));
+      result.trad.push(n(cols[7]));
+      result.emp.push(n(cols[8]));
+      result.total.push(n(cols[9]));
+      result.arrival.push(n(cols[10]));
+      result.inv.push(n(cols[11]));
+      result.preset.push(f(cols[12]));
+      result.actual.push(f(cols[13]));
+    } else {
+      result.ship.push(n(cols[1]) || 0);
+      result.arrival.push(n(cols[2]));
+      result.inv.push(n(cols[3]));
+      result.preset.push(f(cols[4]));
+      result.actual.push(f(cols[5]));
+    }
+  }
+  return result;
+}
+
+// ══════════════════════════════════════════════
+//  Sheets 載入
+// ══════════════════════════════════════════════
+async function loadAllSheets() {
+  const skus = Object.keys(SHEET_MAP);
+  let anyOk = false;
+  await Promise.all(skus.map(async (sku) => {
+    try {
+      const encoded = encodeURIComponent(SHEET_MAP[sku]);
+      const url = 'https://docs.google.com/spreadsheets/d/' + SHEET_ID + '/gviz/tq?tqx=out:csv&sheet=' + encoded;
+      const res = await fetch(url);
+      if (!res.ok) throw new Error('HTTP ' + res.status);
+      const csv = await res.text();
+      const parsed = parseCSV(csv, sku);
+      if (parsed.months.length > 0) {
+        RAW[sku] = parsed;
+        const bEl = document.getElementById('batch-' + sku);
+        if (bEl && parsed.batchQty) bEl.value = parsed.batchQty;
+        anyOk = true;
+        console.log('[載入]', sku, parsed.months.length, '月');
+      }
+    } catch(e) { console.warn('[載入失敗]', sku, e.message); }
+  }));
+
+  // 自動偵測最新確認月份
+  const lastMonths = skus.map(s => RAW[s] && RAW[s].months.length ? RAW[s].months[RAW[s].months.length-1] : null).filter(Boolean);
+  if (lastMonths.length) CUTOFF = lastMonths.sort().pop();
+
+  const now = new Date();
+  const timeStr = now.getHours().toString().padStart(2,'0') + ':' + now.getMinutes().toString().padStart(2,'0');
+  if (anyOk) { setStatus('ok', timeStr); }
+  else { setStatus('error'); }
+
+  // 重繪目前分頁
+  const activeTab = document.querySelector('.tab-panel.active');
+  if (activeTab) {
+    const sku = activeTab.id.replace('tab-', '');
+    recalc(sku);
+  }
+}
+
+// ══════════════════════════════════════════════
+//  核心計算
+// ══════════════════════════════════════════════
+function compute(sku) {
+  const raw = RAW[sku];
+  if (!raw || !raw.months || raw.months.length === 0) return null;
+
+  const ss          = parseFloat(document.getElementById('ss-' + sku).value) || 1.5;
+  const fmonths     = parseInt(document.getElementById('fmonths-' + sku).value) || 24;
+  const batch       = Math.round(parseFloat(document.getElementById('batch-' + sku).value)) || BATCH_DEFAULTS[sku];
+  const maxbatch    = parseInt(document.getElementById('maxbatch-' + sku).value) || 3;
+  const maxarrival  = parseInt(document.getElementById('maxarrival-' + sku).value) || 3;
+  const growthbase  = document.getElementById('growthbase-' + sku).value || 'yoy';
+  const customgrowth = parseFloat(document.getElementById('customgrowth-' + sku).value) || 1.0;
+
+  const isChannel = CHANNEL_SKUS.includes(sku);
+  const histLen   = raw.months.length;
+  const allMonths = [...raw.months];
+  for (let i = 1; i <= fmonths; i++) allMonths.push(addMonths(CUTOFF, i));
+  const n = allMonths.length;
+
+  const shipArr    = new Array(n).fill(0);
+  const invArr     = new Array(n).fill(null);
+  const safeArr    = new Array(n).fill(0);
+  const growArr    = new Array(n).fill(null);
+  const arrivalArr = new Array(n).fill(0);
+
+  const getShip    = i => isChannel ? (raw.total[i] || 0) : (raw.ship[i] || 0);
+  const getPreset  = i => raw.preset ? raw.preset[i] : null;
+  const getActual  = i => raw.actual ? raw.actual[i] : null;
+
+  // 歷史
+  for (let i = 0; i < histLen; i++) {
+    shipArr[i] = getShip(i);
+    const arrKey = sku + '-arr-' + allMonths[i];
+    arrivalArr[i] = (arrivalOverrides[arrKey] !== undefined)
+      ? arrivalOverrides[arrKey]
+      : (raw.arrival && raw.arrival[i] != null ? raw.arrival[i] : 0);
+    const key = sku + '-' + allMonths[i];
+    invArr[i]  = (overrides[key] !== undefined) ? overrides[key] : raw.inv[i];
+    growArr[i] = getActual(i) || getPreset(i);
+  }
+
+  // 預測
+  for (let i = histLen; i < n; i++) {
+    const m        = allMonths[i];
+    const monthNum = parseInt(m.split('-')[1]);
+    const prevYearIdx = allMonths.indexOf(addMonths(m, -12));
+    const baseShip = prevYearIdx >= 0 ? shipArr[prevYearIdx] : (shipArr[i-12] || shipArr[i-1] || 0);
+    let g = customgrowth;
+    if (growthbase === 'preset') {
+      const pg = getPreset(i - 12);
+      g = pg != null ? pg : customgrowth;
+    } else if (growthbase === 'yoy') {
+      const sameMonth = allMonths.slice(0, i)
+        .map((mm, ii) => ({ mm, ii }))
+        .filter(({ mm }) => mm.endsWith('-' + String(monthNum).padStart(2,'0')));
+      const validG = sameMonth.map(({ ii }) => growArr[ii]).filter(v => v != null && v > 0);
+      g = validG.length > 0 ? validG[validG.length-1] : customgrowth;
+    }
+    growArr[i]  = g;
+    shipArr[i]  = Math.max(0, Math.round((baseShip || 0) * g));
+  }
+
+  // 安全庫存
+  for (let i = 0; i < n; i++) {
+    const sl = shipArr.slice(Math.max(0, i-2), i+1).filter(v => v > 0);
+    safeArr[i] = sl.length > 0 ? Math.round(sl.reduce((a,b) => a+b, 0) / sl.length * ss) : 0;
+  }
+
+  // 預測期庫存
+  for (let i = histLen; i < n; i++) {
+    arrivalArr[i] = 0;
+    invArr[i] = (invArr[i-1] || 0) - shipArr[i];
+  }
+
+  // 訂單排程 (Lead time = 2個月)
+  const orderArr = new Array(n).fill(0);
+  const LEAD = 2;
+  for (let i = histLen; i < n; i++) {
+    const checkIdx = Math.min(i + LEAD, n-1);
+    let proj = invArr[i];
+    for (let j = i+1; j <= checkIdx; j++) proj = proj - shipArr[j] + arrivalArr[j];
+    const needed = safeArr[checkIdx] - proj;
+    if (needed > 0) {
+      let b = Math.min(Math.ceil(needed / batch), maxbatch);
+      const arrMonth = Math.min(i + LEAD, n-1);
+      const curB = Math.round(arrivalArr[arrMonth] / batch);
+      b = Math.min(b, Math.max(0, maxarrival - curB));
+      if (b > 0) {
+        const qty = b * batch;
+        arrivalArr[arrMonth] += qty;
+        orderArr[i] += qty;
+        for (let j = arrMonth; j < n; j++) {
+          invArr[j] = (invArr[j-1] || 0) + arrivalArr[j] - shipArr[j];
+        }
+      }
+    }
+  }
+
+  const displayStart = Math.max(0, histLen - 12);
+  return { allMonths, shipArr, invArr, safeArr, growArr, orderArr, arrivalArr,
+           histLen, displayStart, n, sku, batch, ss, raw, isChannel };
+}
+
+// ══════════════════════════════════════════════
+//  KPI
+// ══════════════════════════════════════════════
+function renderKPI(d) {
+  const el = document.getElementById('kpi-' + d.sku);
+  if (!d || !el) return;
+  const { invArr, shipArr, safeArr, histLen, ss, batch, orderArr, n, sku } = d;
+  const lastInv  = invArr[histLen-1] || 0;
+  const lastSafe = safeArr[histLen-1] || 0;
+  const sl = shipArr.slice(Math.max(0, histLen-3), histLen).filter(v => v > 0);
+  const avg3 = sl.length > 0 ? sl.reduce((a,b) => a+b,0)/sl.length : 1;
+  const cover = avg3 > 0 ? (lastInv/avg3).toFixed(1) : '—';
+  const gap   = lastInv - lastSafe;
+  const gapCls = gap < 0 ? 'kpi-red' : gap < lastSafe * 0.3 ? 'kpi-yellow' : 'kpi-green';
+  const totalOrder = orderArr.slice(histLen).reduce((a,b) => a+b, 0);
+  el.innerHTML =
+    '<div class="kpi-card"><div class="kpi-label">當前期末庫存</div><div class="kpi-value kpi-blue">' + fmt(lastInv) + '</div><div class="kpi-sub">' + CUTOFF + '</div></div>' +
+    '<div class="kpi-card"><div class="kpi-label">安全庫存</div><div class="kpi-value kpi-yellow">' + fmt(lastSafe) + '</div><div class="kpi-sub">' + ss + '個月基準</div></div>' +
+    '<div class="kpi-card"><div class="kpi-label">庫存缺口</div><div class="kpi-value ' + gapCls + '">' + (gap>=0?'+':'') + fmt(gap) + '</div><div class="kpi-sub">' + (gap>=0?'安全':'⚠ 低於安全庫存') + '</div></div>' +
+    '<div class="kpi-card"><div class="kpi-label">庫存涵蓋月數</div><div class="kpi-value kpi-blue">' + cover + '月</div><div class="kpi-sub">依近3月均出貨</div></div>' +
+    '<div class="kpi-card"><div class="kpi-label">預測期建議採購</div><div class="kpi-value kpi-yellow">' + fmt(totalOrder) + '</div><div class="kpi-sub">' + Math.round(totalOrder/batch) + '批 × ' + fmt(batch) + '</div></div>' +
+    '<div class="kpi-card"><div class="kpi-label">批次量</div><div class="kpi-value">' + fmt(batch) + '</div><div class="kpi-sub">每批單位</div></div>';
+}
+
+// ══════════════════════════════════════════════
+//  圖表
+// ══════════════════════════════════════════════
+function chartOptions(histCount) {
+  return {
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { labels: { color: '#9aa0c4', boxWidth: 12, font: { size: 11 } } },
+               tooltip: { callbacks: { label: ctx => ' ' + ctx.dataset.label + ': ' + (ctx.parsed.y != null ? Math.round(ctx.parsed.y).toLocaleString() : '—') } } },
+    scales: {
+      x: { ticks: { color: '#5a6080', maxRotation: 45, font: { size: 10 } }, grid: { color: 'rgba(46,51,80,.4)' },
+           afterTickToLabelConversion: function(axis) {
+             axis.ticks.forEach((tick, i) => { if (i >= histCount && axis.ticks[i-1] && i === histCount) tick.label = '▶ ' + tick.label; });
+           }},
+      y: { ticks: { color: '#5a6080', font: { size: 10 }, callback: v => v >= 1000 ? (v/1000).toFixed(0)+'K' : v }, grid: { color: 'rgba(46,51,80,.4)' } },
+    }
+  };
+}
+
+function renderCharts(d) {
+  if (!d) return;
+  const { allMonths, shipArr, invArr, safeArr, arrivalArr, histLen, displayStart, n, sku } = d;
+  const labels     = allMonths.slice(displayStart);
+  const histCount  = histLen - displayStart;
+  const invColors  = labels.map((_,i) => i < histCount ? 'rgba(59,130,246,.65)' : 'rgba(59,130,246,.28)');
+  const shipColors = labels.map((_,i) => i < histCount ? 'rgba(34,197,94,.7)'   : 'rgba(34,197,94,.28)');
+
+  const ctx1 = document.getElementById('chart-inv-' + sku);
+  if (!ctx1) return;
+  if (charts['inv-'+sku]) charts['inv-'+sku].destroy();
+  charts['inv-'+sku] = new Chart(ctx1.getContext('2d'), {
+    data: { labels, datasets: [
+      { type:'bar',  label:'期末庫存',   data: invArr.slice(displayStart),     backgroundColor: invColors,                    borderRadius:3, order:2 },
+      { type:'bar',  label:'出貨量',     data: shipArr.slice(displayStart),    backgroundColor: shipColors,                   borderRadius:3, order:3 },
+      { type:'line', label:'安全庫存線', data: safeArr.slice(displayStart),    borderColor:'#d97706', borderWidth:2, borderDash:[6,3], pointRadius:0, fill:false, tension:.3, order:1 },
+      { type:'bar',  label:'到貨量',     data: arrivalArr.slice(displayStart), backgroundColor:'rgba(124,58,237,.5)',          borderRadius:3, order:4 },
+    ]},
+    options: chartOptions(histCount),
+  });
+
+  const histShip = shipArr.slice(displayStart).map((v,i) => i < histCount ? v : null);
+  const foreShip = shipArr.slice(displayStart).map((v,i) => i < histCount ? null : v);
+  if (histCount < foreShip.length) foreShip[histCount-1] = histShip[histCount-1] || 0;
+
+  const ctx2 = document.getElementById('chart-ship-' + sku);
+  if (!ctx2) return;
+  if (charts['ship-'+sku]) charts['ship-'+sku].destroy();
+  charts['ship-'+sku] = new Chart(ctx2.getContext('2d'), {
+    data: { labels, datasets: [
+      { type:'line', label:'歷史出貨量', data: histShip, borderColor:'#16a34a', borderWidth:2.5, pointRadius:3, fill:false, tension:.2, spanGaps:false },
+      { type:'line', label:'預測出貨量', data: foreShip, borderColor:'#2563eb', borderWidth:2, borderDash:[5,4], pointRadius:2, fill:false, tension:.2, spanGaps:false },
+      { type:'line', label:'安全庫存線', data: safeArr.slice(displayStart), borderColor:'#d97706', borderWidth:1.5, borderDash:[4,3], pointRadius:0, fill:false, tension:.3 },
+    ]},
+    options: chartOptions(histCount),
+  });
+}
+
+// ══════════════════════════════════════════════
+//  資料表
+// ══════════════════════════════════════════════
+function renderTable(d) {
+  const el = document.getElementById('table-' + d.sku);
+  if (!d || !el) return;
+  const { allMonths, shipArr, invArr, safeArr, growArr, arrivalArr, orderArr, histLen, displayStart, n, sku, batch, ss, raw, isChannel } = d;
+
+  let rows = '<table><thead><tr>';
+  rows += '<th class="col-left">月份</th><th>類型</th><th>出貨量</th>';
+  if (isChannel) rows += '<th>Watsons</th><th>COSMED</th><th>Tomods</th><th>日藥本舖</th><th>松本清</th><th>連鎖藥局</th><th>傳統藥局</th><th>員購百貨</th>';
+  rows += '<th title="歷史=實際到貨(綠底可編輯)；預測=系統建議值">到貨量</th><th>期末庫存</th><th>安全庫存</th><th>庫存月份</th><th>成長率</th><th>缺口警示</th><th>建議下單(批)</th>';
+  rows += '</tr></thead><tbody>';
+
+  for (let i = displayStart; i < n; i++) {
+    const m          = allMonths[i];
+    const isHist     = i < histLen;
+    const isLastHist = i === histLen - 1;
+    const inv  = invArr[i], safe = safeArr[i], ship = shipArr[i];
+    const gap  = (inv != null && safe != null) ? inv - safe : null;
+    const gapCls  = gap === null ? '' : (gap < 0 ? 'danger' : gap < safe*0.3 ? 'warn' : 'good');
+    const cover   = (ship > 0 && inv != null) ? (inv/ship).toFixed(1) + '月' : '—';
+    const rowCls  = isHist ? '' : 'forecast-row';
+    const tag     = isHist
+      ? (isLastHist ? '<span class="month-tag tag-current">確認</span>' : '<span class="month-tag tag-hist">歷史</span>')
+      : '<span class="month-tag tag-forecast">預測</span>';
+    const orderB  = orderArr[i] ? Math.round(orderArr[i]/batch) : 0;
+
+    // 到貨欄
+    let arrCell;
+    if (isLastHist) {
+      arrCell = '<td class="editable arrival-editable" title="可填入實際到貨量"><input type="number" value="' + (arrivalArr[i]>0?arrivalArr[i]:'') + '" placeholder="0" onchange="setArrivalOverride(\'' + sku + '\',\'' + m + '\',this.value)" onblur="setArrivalOverride(\'' + sku + '\',\'' + m + '\',this.value)"></td>';
+    } else if (isHist) {
+      arrCell = '<td style="background:rgba(22,163,74,.06);color:' + (arrivalArr[i]>0?'var(--green)':'var(--text3)') + ';">' + (arrivalArr[i]>0?fmt(arrivalArr[i]):'—') + '</td>';
+    } else {
+      arrCell = '<td style="color:' + (arrivalArr[i]>0?'var(--accent)':'var(--text3)') + ';">' + (arrivalArr[i]>0?fmt(arrivalArr[i]):'—') + '</td>';
+    }
+
+    // 庫存欄
+    let invCell = isLastHist
+      ? '<td class="editable" title="可手動校正"><input type="number" value="' + Math.round(inv||0) + '" onchange="setOverride(\'' + sku + '\',\'' + m + '\',this.value)" onblur="setOverride(\'' + sku + '\',\'' + m + '\',this.value)"></td>'
+      : '<td class="' + gapCls + '">' + fmt(inv) + '</td>';
+
+    rows += '<tr class="' + rowCls + '">';
+    rows += '<td class="col-left">' + m + '</td>';
+    rows += '<td class="col-center">' + tag + '</td>';
+    rows += '<td>' + fmt(ship) + '</td>';
+
+    if (isChannel) {
+      const di = isHist && raw && i < raw.months.length;
+      rows += '<td style="color:var(--text2)">' + (di?fmt(raw.watsons[i]):'—') + '</td>';
+      rows += '<td style="color:var(--text2)">' + (di?fmt(raw.cosmed[i]):'—') + '</td>';
+      rows += '<td style="color:var(--text2)">' + (di?fmt(raw.tomods[i]):'—') + '</td>';
+      rows += '<td style="color:var(--text2)">' + (di?fmt(raw.nihon[i]):'—') + '</td>';
+      rows += '<td style="color:var(--text2)">' + (di?fmt(raw.matsu[i]):'—') + '</td>';
+      rows += '<td style="color:var(--text2)">' + (di?fmt(raw.chain[i]):'—') + '</td>';
+      rows += '<td style="color:var(--text2)">' + (di?fmt(raw.trad[i]):'—') + '</td>';
+      rows += '<td style="color:var(--text2)">' + (di?fmt(raw.emp[i]):'—') + '</td>';
+    }
+
+    rows += arrCell + invCell;
+    rows += '<td class="label-cell">' + fmt(safe) + '</td>';
+    rows += '<td class="' + (parseFloat(cover) < ss ? 'warn' : '') + '">' + cover + '</td>';
+    rows += '<td>' + fmtPct(growArr[i]) + '</td>';
+    rows += '<td class="' + gapCls + '">' + (gap!==null?(gap>=0?'+':'') + fmt(gap):'—') + '</td>';
+    rows += '<td style="color:' + (orderB>0?'var(--yellow)':'var(--text3)') + '">' + (orderB>0?'⚡ '+orderB+'批':'—') + '</td>';
+    rows += '</tr>';
+  }
+  rows += '</tbody></table>';
+  el.innerHTML = rows;
+}
+
+// ══════════════════════════════════════════════
+//  下單排程
+// ══════════════════════════════════════════════
+function renderOrderSchedule(d) {
+  const el = document.getElementById('order-' + d.sku);
+  if (!d || !el) return;
+  const { allMonths, orderArr, arrivalArr, histLen, n, batch, sku } = d;
+  const orders = [];
+  for (let i = histLen; i < n; i++) {
+    if (orderArr[i] > 0) orders.push({
+      orderMonth:   allMonths[i],
+      arrivalMonth: allMonths[Math.min(i+2, n-1)],
+      qty:     orderArr[i],
+      batches: Math.round(orderArr[i]/batch),
+    });
+  }
+  if (orders.length === 0) {
+    el.innerHTML = '<div class="info-box">✅ 預測期內庫存充足，無需額外下單</div>';
+    return;
+  }
+  let html = '<div class="table-card"><div class="table-scroll"><table><thead><tr>';
+  html += '<th class="col-left">建議下單月份</th><th>預計到貨月份</th><th>建議批數</th><th>訂單數量</th><th>說明</th>';
+  html += '</tr></thead><tbody>';
+  orders.forEach(o => {
+    html += '<tr>';
+    html += '<td class="col-left" style="color:var(--yellow)">📦 ' + o.orderMonth + '</td>';
+    html += '<td>' + o.arrivalMonth + '</td>';
+    html += '<td style="color:var(--accent);font-weight:700;">' + o.batches + ' 批</td>';
+    html += '<td style="font-weight:600;">' + fmt(o.qty) + '</td>';
+    html += '<td style="color:var(--text2)">安全庫存補充</td>';
+    html += '</tr>';
+  });
+  html += '</tbody></table></div></div>';
+  el.innerHTML = html;
+}
+
+// ══════════════════════════════════════════════
+//  Override
+// ══════════════════════════════════════════════
+function setOverride(sku, month, val) {
+  const v = parseInt(val);
+  if (!isNaN(v) && v >= 0) {
+    overrides[sku + '-' + month] = v;
+    saveToStorage();
+    recalc(sku);
+    flashSaved(sku);
+  }
+}
+
+function setArrivalOverride(sku, month, val) {
+  const v = parseInt(val);
+  if (!isNaN(v) && v >= 0) {
+    arrivalOverrides[sku + '-arr-' + month] = v;
+    saveToStorage();
+    recalc(sku);
+    flashSaved(sku);
+  }
+}
+
+// ══════════════════════════════════════════════
+//  localStorage
+// ══════════════════════════════════════════════
+function saveToStorage() {
+  try {
+    const state = { overrides, arrivalOverrides, settings: {} };
+    Object.keys(SHEET_MAP).forEach(sku => {
+      try {
+        state.settings[sku] = {
+          ss:           document.getElementById('ss-'+sku)?.value,
+          fmonths:      document.getElementById('fmonths-'+sku)?.value,
+          batch:        document.getElementById('batch-'+sku)?.value,
+          maxbatch:     document.getElementById('maxbatch-'+sku)?.value,
+          maxarrival:   document.getElementById('maxarrival-'+sku)?.value,
+          growthbase:   document.getElementById('growthbase-'+sku)?.value,
+          customgrowth: document.getElementById('customgrowth-'+sku)?.value,
+        };
+      } catch(e) {}
+    });
+    localStorage.setItem('kaigen_forecast_v1', JSON.stringify(state));
+  } catch(e) {}
+}
+
+function loadFromStorage() {
+  try {
+    const raw = localStorage.getItem('kaigen_forecast_v1');
+    if (!raw) return;
+    const state = JSON.parse(raw);
+    if (state.overrides)        overrides        = state.overrides;
+    if (state.arrivalOverrides) arrivalOverrides = state.arrivalOverrides;
+    if (state.settings) {
+      Object.keys(SHEET_MAP).forEach(sku => {
+        const s = state.settings[sku];
+        if (!s) return;
+        try {
+          if (s.ss)           document.getElementById('ss-'+sku).value           = s.ss;
+          if (s.fmonths)      document.getElementById('fmonths-'+sku).value      = s.fmonths;
+          if (s.batch)        document.getElementById('batch-'+sku).value        = s.batch;
+          if (s.maxbatch)     document.getElementById('maxbatch-'+sku).value     = s.maxbatch;
+          if (s.maxarrival)   document.getElementById('maxarrival-'+sku).value   = s.maxarrival;
+          if (s.growthbase)   document.getElementById('growthbase-'+sku).value   = s.growthbase;
+          if (s.customgrowth) document.getElementById('customgrowth-'+sku).value = s.customgrowth;
+        } catch(e) {}
+      });
+    }
+  } catch(e) {}
+}
+
+function saveAllSettings() {
+  saveToStorage();
+  const el = document.getElementById('syncStatus');
+  const prev = el.textContent;
+  el.textContent = '✓ 設定已儲存';
+  setTimeout(() => el.textContent = prev, 1500);
+}
+
+// ══════════════════════════════════════════════
+//  主計算入口
+// ══════════════════════════════════════════════
+function recalc(sku) {
+  if (!RAW[sku]) {
+    const el = document.getElementById('kpi-' + sku);
+    if (el) el.innerHTML = '<div class="info-box">⏳ 資料載入中，請稍候...</div>';
+    return;
+  }
+  try {
+    const d = compute(sku);
+    renderKPI(d);
+    renderCharts(d);
+    renderTable(d);
+    renderOrderSchedule(d);
+  } catch(e) {
+    console.error('[recalc]', sku, e.message, e.stack);
+  }
+}
+
+// ══════════════════════════════════════════════
+//  Tab 切換
+// ══════════════════════════════════════════════
+function switchTab(id) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.querySelectorAll('.tab-btn').forEach(b => b.classList.remove('active'));
+  const panel = document.getElementById(id);
+  if (panel) panel.classList.add('active');
+  const allTabs = ['tab-ib8','tab-ib16','tab-ib24','tab-cold-gran','tab-cold-tab'];
+  const idx = allTabs.indexOf(id);
+  const btns = document.querySelectorAll('.tab-btn');
+  if (idx >= 0 && btns[idx]) btns[idx].classList.add('active');
+  const sku = id.replace('tab-', '');
+  recalc(sku);
+}
+
+// ══════════════════════════════════════════════
+//  INIT
+// ══════════════════════════════════════════════
+loadFromStorage();
+recalc('ib8');
+loadAllSheets();
+</script>
+</body>
+</html>
