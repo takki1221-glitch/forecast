@@ -1,2 +1,0 @@
-# wakamoto-forecast
-wakamoto-forecast
