@@ -1,0 +1,825 @@
+<!DOCTYPE html>
+<html lang="zh-TW" data-theme="light">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>眼藥水三品項 — 效期與訂單預估系統</title>
+<script src="https://cdnjs.cloudflare.com/ajax/libs/Chart.js/4.4.1/chart.umd.min.js"></script>
+<style>
+  :root[data-theme="dark"] {
+    --bg: #0f1117; --surface: #1a1d27; --surface2: #22263a;
+    --border: #2e3350; --text: #e8eaf6; --text2: #9aa0c4; --text3: #5a6080;
+    --blue: #3b82f6; --green: #22c55e; --yellow: #f59e0b; --red: #ef4444;
+    --accent: #7c3aed; --accent2: #06b6d4;
+  }
+  :root[data-theme="light"] {
+    --bg: #f0f4f8; --surface: #ffffff; --surface2: #f1f5f9;
+    --border: #e2e8f0; --text: #1a202c; --text2: #4a5568; --text3: #a0aec0;
+    --blue: #2563eb; --green: #16a34a; --yellow: #d97706; --red: #dc2626;
+    --accent: #7c3aed; --accent2: #0891b2;
+  }
+  * { box-sizing: border-box; margin: 0; padding: 0; }
+  body { background: var(--bg); color: var(--text); font-family: 'Segoe UI', 'Noto Sans TC', sans-serif; font-size: 14px; min-height: 100vh; transition: background .3s, color .3s; }
+  .theme-toggle { background: var(--surface2); border: 1px solid var(--border); border-radius: 20px; padding: 6px 14px; cursor: pointer; font-size: 13px; font-weight: 600; color: var(--text2); }
+  .theme-toggle:hover { color: var(--text); }
+
+  .header { background: var(--surface); border-bottom: 1px solid var(--border); padding: 14px 24px; display: flex; align-items: center; justify-content: space-between; position: sticky; top: 0; z-index: 100; flex-wrap: wrap; gap: 10px; }
+  .header-left { display: flex; align-items: center; gap: 14px; }
+  .logo { width: 36px; height: 36px; background: linear-gradient(135deg,#0891b2,#2563eb); border-radius: 10px; display: flex; align-items: center; justify-content: center; font-weight: 800; color: #fff; font-size: 16px; }
+  .header-title h1 { font-size: 17px; font-weight: 700; letter-spacing: -0.3px; }
+  .header-title p  { font-size: 12px; color: var(--text2); margin-top: 1px; }
+  .header-right { display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  .mode-box { display: flex; align-items: center; gap: 6px; font-size: 12px; color: var(--text2); font-weight: 600; }
+  .mode-box select { background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; color: var(--text); padding: 6px 8px; font-size: 13px; }
+  .status-badge { padding: 5px 12px; border-radius: 20px; font-size: 12px; font-weight: 600; border: 1px solid; }
+  .status-ok    { background: rgba(34,197,94,.1); color: var(--green); border-color: rgba(34,197,94,.3); }
+  .status-error { background: rgba(239,68,68,.1);  color: var(--red);   border-color: rgba(239,68,68,.3); }
+  .status-loading { background: rgba(245,158,11,.1); color: var(--yellow); border-color: rgba(245,158,11,.3); }
+  .btn { padding: 7px 16px; border-radius: 8px; border: none; cursor: pointer; font-size: 13px; font-weight: 600; }
+  .btn-primary { background: var(--blue); color: #fff; }
+  .btn-ghost { background: var(--surface2); color: var(--text2); border: 1px solid var(--border); }
+
+  .tabs { background: var(--surface); border-bottom: 1px solid var(--border); padding: 0 24px; display: flex; align-items: center; gap: 2px; overflow-x: auto; }
+  .tab-btn { padding: 12px 16px; background: none; border: none; border-bottom: 2px solid transparent; color: var(--text2); cursor: pointer; font-size: 13px; font-weight: 500; white-space: nowrap; }
+  .tab-btn:hover { color: var(--text); }
+  .tab-btn.active { color: var(--blue); border-bottom-color: var(--blue); font-weight: 600; }
+
+  .main { padding: 24px; max-width: 1600px; margin: 0 auto; }
+  .tab-panel { display: none; }
+  .tab-panel.active { display: block; }
+
+  .settings-bar { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px 20px; display: flex; flex-wrap: wrap; gap: 16px; align-items: flex-end; margin-bottom: 20px; }
+  .setting-group { display: flex; flex-direction: column; gap: 5px; }
+  .setting-group label { font-size: 11px; color: var(--text2); font-weight: 600; letter-spacing: .03em; }
+  .setting-group input, .setting-group select { background: var(--surface2); border: 1px solid var(--border); border-radius: 6px; color: var(--text); padding: 6px 10px; font-size: 13px; width: 110px; }
+  .setting-group .hint { font-size: 10px; color: var(--text3); }
+
+  .kpi-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(170px, 1fr)); gap: 12px; margin-bottom: 20px; }
+  .kpi-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 16px; }
+  .kpi-label { font-size: 11px; color: var(--text2); font-weight: 600; letter-spacing: .03em; margin-bottom: 8px; }
+  .kpi-value { font-size: 21px; font-weight: 700; font-family: 'JetBrains Mono', monospace; letter-spacing: -1px; }
+  .kpi-sub   { font-size: 11px; color: var(--text3); margin-top: 4px; }
+  .kpi-blue { color: var(--blue); } .kpi-green { color: var(--green); } .kpi-yellow { color: var(--yellow); } .kpi-red { color: var(--red); }
+
+  .chart-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; padding: 20px; margin-bottom: 16px; }
+  .chart-title { font-size: 13px; font-weight: 600; color: var(--text2); margin-bottom: 16px; display: flex; align-items: center; gap: 8px; }
+  .dot { width: 8px; height: 8px; border-radius: 50%; background: var(--blue); display: inline-block; }
+  .chart-wrap { height: 300px; position: relative; }
+
+  .table-card { background: var(--surface); border: 1px solid var(--border); border-radius: 12px; overflow: hidden; margin-bottom: 16px; }
+  .table-header { padding: 14px 20px; border-bottom: 1px solid var(--border); display: flex; justify-content: space-between; align-items: center; }
+  .table-title { font-size: 14px; font-weight: 600; }
+  .table-note { font-size: 11px; color: var(--text3); }
+  .table-scroll { overflow-x: auto; }
+  table { width: 100%; border-collapse: collapse; font-size: 12px; }
+  th { background: var(--surface2); color: var(--text2); font-weight: 600; padding: 8px 10px; text-align: center; border-bottom: 1px solid var(--border); white-space: nowrap; font-size: 11px; }
+  td { padding: 7px 10px; text-align: right; border-bottom: 1px solid var(--border); font-family: 'JetBrains Mono', monospace; font-size: 12px; white-space: nowrap; }
+  tr:last-child td { border-bottom: none; }
+  tr:hover td { background: rgba(59,130,246,.04); }
+  .col-left { text-align: left !important; font-family: inherit !important; font-weight: 500; }
+  .col-center { text-align: center !important; font-family: inherit !important; }
+  .danger { color: var(--red) !important; } .warn { color: var(--yellow) !important; } .good { color: var(--green) !important; } .muted { color: var(--text3) !important; }
+  .tag { display: inline-block; padding: 2px 7px; border-radius: 4px; font-size: 10px; font-weight: 700; }
+  .tag-done { background: rgba(34,197,94,.15); color: var(--green); }
+  .tag-ordered { background: rgba(59,130,246,.15); color: var(--blue); }
+  .tag-plan { background: rgba(245,158,11,.15); color: var(--yellow); }
+  .tag-sug { background: rgba(124,58,237,.15); color: var(--accent); }
+
+  .section-title { font-size: 14px; font-weight: 700; color: var(--text2); margin: 22px 0 10px; }
+  .info-box { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 14px 18px; color: var(--text2); font-size: 13px; line-height: 1.7; margin-bottom: 14px; }
+  .alert { border-left: 4px solid var(--yellow); }
+  .alert.red { border-left-color: var(--red); }
+  .alert.green { border-left-color: var(--green); }
+  .alert ul { margin: 6px 0 0 18px; }
+  .base-grid { display: flex; flex-wrap: wrap; gap: 12px; align-items: flex-end; }
+  .base-grid input { width: 96px; }
+  .sku-chip { display: inline-block; width: 10px; height: 10px; border-radius: 3px; margin-right: 6px; }
+  .save-indicator { font-size: 11px; color: var(--green); opacity: 0; transition: opacity .3s; }
+  .save-indicator.visible { opacity: 1; }
+</style>
+</head>
+<body>
+
+<div class="header">
+  <div class="header-left">
+    <div class="logo">眼</div>
+    <div class="header-title">
+      <h1>眼藥水三品項 — 效期與訂單預估</h1>
+      <p>新鮮視OA · E視界50 · 人工淚液 | 批次效期 · 藥妝 1/2 規則 · 三批搭配下單</p>
+    </div>
+  </div>
+  <div class="header-right">
+    <div class="mode-box">下單方案
+      <select id="modeSel" onchange="setMode(this.value)">
+        <option value="auto">系統建議</option>
+        <option value="plan">我的手排計畫</option>
+        <option value="none">只看已確定批次</option>
+      </select>
+    </div>
+    <button class="theme-toggle" onclick="toggleTheme()" id="themeBtn">🌙 暗色</button>
+    <span class="status-badge status-loading" id="syncStatus">⏳ 載入中...</span>
+    <button class="btn btn-primary" onclick="reloadSheets()">🔄 重新讀取 Sheet</button>
+  </div>
+</div>
+
+<div class="tabs" id="tabs">
+  <button class="tab-btn active" onclick="switchTab('overview')">總覽</button>
+  <button class="tab-btn" onclick="switchTab('oa')">新鮮視OA</button>
+  <button class="tab-btn" onclick="switchTab('e50')">E視界50</button>
+  <button class="tab-btn" onclick="switchTab('tear')">人工淚液</button>
+  <button class="tab-btn" onclick="switchTab('prearr')">📋 預排批次</button>
+  <button class="tab-btn" onclick="switchTab('settings')">⚙ 設定</button>
+</div>
+
+<div class="main">
+  <div id="tab-overview" class="tab-panel active"><div class="info-box">⏳ 資料載入中...</div></div>
+  <div id="tab-oa" class="tab-panel"></div>
+  <div id="tab-e50" class="tab-panel"></div>
+  <div id="tab-tear" class="tab-panel"></div>
+  <div id="tab-prearr" class="tab-panel"></div>
+  <div id="tab-settings" class="tab-panel"></div>
+</div>
+
+<script>
+// ══════════════════════════════════════════════
+//  設定與常數
+// ══════════════════════════════════════════════
+const SHEET_ID  = '1-yczIuw1OsBhHRwdlB_yipJZR9vaKWeyTocwLFF0F4w';
+const LOT_SHEET = '批次';
+const SKUS = [
+  { id: 'oa',   name: '新鮮視OA', sheet: 'OA' },
+  { id: 'e50',  name: 'E視界50',  sheet: 'E50' },
+  { id: 'tear', name: '人工淚液', sheet: '人工淚液' },
+];
+const CHS = [
+  { k: 'drug',  n: '藥妝',     restricted: true },
+  { k: 'jp',    n: '日本藥妝', restricted: true },
+  { k: 'chain', n: '連鎖藥局', restricted: false },
+  { k: 'gen',   n: '一般藥局', restricted: false },
+  { k: 'other', n: '其他',     restricted: false },
+];
+const LOT_SIZE = 55000;
+const PALETTE = ['#2563eb','#16a34a','#d97706','#7c3aed','#0891b2','#db2777','#65a30d','#ea580c','#4f46e5','#0d9488'];
+const STORE_KEY = 'eyedrops_settings_v2';
+const DEFAULTS = {
+  mode: 'auto', lead: 4, loss: 4.5, defYears: 2, prodGap: 3, ratio: 50,
+  horizon: 24, safety: 1.5, drugSafety: 1, baseMonths: 6, maxLots: 10,
+  growth: { oa: 1, e50: 1, tear: 1 },
+  base: { oa: {}, e50: {}, tear: {} },
+};
+let S = JSON.parse(JSON.stringify(DEFAULTS));
+let RAWM = {};   // 各品項月出貨
+let LOTS = [];   // 批次清單
+let SIM = {};    // 模擬結果
+let PLAN = { orders: [], extras: [], early: {} };
+let SUG = { orders: [], extras: [], early: {} };
+let charts = {};
+let loaded = false;
+
+// ══════════════════════════════════════════════
+//  工具
+// ══════════════════════════════════════════════
+const pad = n => String(n).padStart(2, '0');
+const miOf = s => { const [y, m] = s.split('-').map(Number); return y * 12 + m - 1; };
+const ymOf = i => Math.floor(i / 12) + '-' + pad(i % 12 + 1);
+const fmt = n => (n == null || isNaN(n)) ? '—' : Math.round(n).toLocaleString();
+const fmtPct = n => (n == null || isNaN(n)) ? '—' : (n * 100).toFixed(0) + '%';
+const numOf = v => { const x = parseFloat(String(v == null ? '' : v).replace(/[^0-9.\-]/g, '')); return isNaN(x) ? null : x; };
+function parseYM(v) { const m = String(v || '').match(/(\d{4})[\/\-.年](\d{1,2})/); return m ? m[1] + '-' + pad(+m[2]) : null; }
+function parseDateMf(v) {
+  const m = String(v || '').match(/(\d{4})[\/\-.年](\d{1,2})[\/\-.月](\d{1,2})/);
+  if (!m) return null;
+  const y = +m[1], mo = +m[2], d = +m[3];
+  const dim = new Date(y, mo, 0).getDate();
+  return y * 12 + (mo - 1) + (d - 1) / dim;
+}
+function mfStr(mf) {
+  if (mf == null || !isFinite(mf)) return '—';
+  const i = Math.floor(mf + 1e-9);
+  const dim = new Date(Math.floor(i / 12), i % 12 + 1, 0).getDate();
+  const d = Math.min(dim, Math.round((mf - i) * dim) + 1);
+  return Math.floor(i / 12) + '-' + pad(i % 12 + 1) + '-' + pad(d);
+}
+function parseCSVLine(line) {
+  const cols = []; let cur = '', inQ = false;
+  for (let i = 0; i < line.length; i++) {
+    const c = line[i];
+    if (c === '"') { if (inQ && line[i + 1] === '"') { cur += '"'; i++; } else inQ = !inQ; }
+    else if (c === ',' && !inQ) { cols.push(cur.trim()); cur = ''; }
+    else cur += c;
+  }
+  cols.push(cur.trim());
+  return cols;
+}
+function skuByName(s) {
+  s = String(s || '');
+  if (/OA/i.test(s)) return 'oa';
+  if (/E50|E視界/i.test(s)) return 'e50';
+  if (/淚/.test(s)) return 'tear';
+  return null;
+}
+function skuName(id) { return SKUS.find(s => s.id === id).name; }
+
+// ══════════════════════════════════════════════
+//  讀取 Google Sheet
+// ══════════════════════════════════════════════
+async function fetchSheet(name) {
+  const url = 'https://docs.google.com/spreadsheets/d/' + SHEET_ID + '/gviz/tq?tqx=out:csv&sheet=' + encodeURIComponent(name);
+  const res = await fetch(url);
+  if (!res.ok) throw new Error('HTTP ' + res.status);
+  return res.text();
+}
+function parseMonthly(text) {
+  const out = { months: [], ch: {}, total: [], inv: [], include: [], note: [] };
+  CHS.forEach(c => out.ch[c.k] = []);
+  text.split(/\r?\n/).filter(l => l.trim()).forEach(line => {
+    const c = parseCSVLine(line).map(x => x.replace(/^"|"$/g, '').trim());
+    if (!/^\d{4}-\d{2}$/.test(c[0])) return;
+    out.months.push(c[0]);
+    CHS.forEach((ch, j) => out.ch[ch.k].push(numOf(c[1 + j]) || 0));
+    out.total.push(numOf(c[6]));
+    out.inv.push(numOf(c[7]));
+    out.include.push(!/^\s*N/i.test(c[8] || 'Y'));
+    out.note.push(c[9] || '');
+  });
+  return out;
+}
+function parseLots(text) {
+  const rows = text.split(/\r?\n/).filter(l => l.trim()).map(l => parseCSVLine(l).map(x => x.replace(/^"|"$/g, '').trim()));
+  const hi = rows.findIndex(r => r[0] === '批次編號');
+  const out = [];
+  rows.slice(hi + 1).forEach(c => {
+    const sku = skuByName(c[1]); const arrival = parseYM(c[3]);
+    if (!sku || !arrival) return;
+    out.push({ id: c[0] || ('L' + (out.length + 1)), sku, status: c[2] || '', arrival,
+      batches: numOf(c[4]), ordered: numOf(c[5]), actual: numOf(c[6]), years: numOf(c[7]),
+      expMf: parseDateMf(c[8]), note: c[9] || '' });
+  });
+  return out;
+}
+async function loadAll() {
+  setStatus('loading');
+  try {
+    const names = [LOT_SHEET].concat(SKUS.map(s => s.sheet));
+    const texts = await Promise.all(names.map(fetchSheet));
+    LOTS = parseLots(texts[0]);
+    SKUS.forEach((s, i) => { RAWM[s.id] = parseMonthly(texts[i + 1]); });
+    console.log('[載入 eyedrops v1] 批次', LOTS.length, '筆；月資料', SKUS.map(s => s.id + ':' + RAWM[s.id].months.length).join(' '));
+    loaded = true;
+    const d = new Date();
+    setStatus('ok', pad(d.getHours()) + ':' + pad(d.getMinutes()));
+    recalcAll();
+  } catch (e) {
+    console.warn('[載入失敗]', e.message);
+    setStatus('error');
+    document.getElementById('tab-overview').innerHTML = '<div class="info-box alert red">無法讀取 Google Sheet（' + e.message + '）。請確認共用設定為「知道連結的人可檢視」，且分頁名稱為：批次、OA、E50、人工淚液。</div>';
+  }
+}
+function reloadSheets() { loadAll(); }
+function setStatus(state, t) {
+  const el = document.getElementById('syncStatus');
+  if (state === 'ok') { el.className = 'status-badge status-ok'; el.textContent = '✓ 已同步 Sheets ' + (t || ''); }
+  else if (state === 'error') { el.className = 'status-badge status-error'; el.textContent = '✗ 讀取失敗'; }
+  else { el.className = 'status-badge status-loading'; el.textContent = '⏳ 載入中...'; }
+}
+
+// ══════════════════════════════════════════════
+//  批次資訊（數量、效期、藥妝期限）
+// ══════════════════════════════════════════════
+function lotInfo(def) {
+  const years = def.years || S.defYears;
+  const L = years * 12;
+  const arrivalMi = miOf(def.arrival);
+  const ordered = def.ordered != null ? def.ordered : (def.batches != null ? def.batches * LOT_SIZE : LOT_SIZE);
+  const qty = def.actual != null ? def.actual : ordered * (1 - S.loss / 100);
+  const expMf = def.expMf != null ? def.expMf : (arrivalMi - S.prodGap + L);
+  const halfMf = expMf - L * S.ratio / 100;
+  return { id: def.id, sku: def.sku, status: def.status, arrival: def.arrival, arrivalMi, qty, years, expMf, halfMf,
+    expSrc: def.expMf != null ? '實填' : '推算', qtySrc: def.actual != null ? '實際' : '估算', note: def.note || '', rem: 0, sortKey: expMf };
+}
+function baseline(skuId) {
+  const raw = RAWM[skuId];
+  const idx = [];
+  for (let i = raw.months.length - 1; i >= 0 && idx.length < S.baseMonths; i--) {
+    const tot = CHS.reduce((a, c) => a + (raw.ch[c.k][i] || 0), 0);
+    if (raw.include[i] && tot > 0) idx.push(i);
+  }
+  const vals = {}, auto = {};
+  CHS.forEach(c => {
+    const a = idx.length ? idx.reduce((s, i) => s + (raw.ch[c.k][i] || 0), 0) / idx.length : 0;
+    auto[c.k] = a;
+    const o = S.base[skuId][c.k];
+    vals[c.k] = (o != null && o !== '') ? o : a * S.growth[skuId];
+  });
+  return { vals, auto, n: idx.length, months: idx.map(i => raw.months[i]).reverse() };
+}
+
+// ══════════════════════════════════════════════
+//  模擬：先進先出（FEFO），藥妝只能用「剩餘效期 ≥ 1/2」的批次
+// ══════════════════════════════════════════════
+function simulate(skuId, extraDefs) {
+  const raw = RAWM[skuId];
+  if (!raw || !raw.months.length) return null;
+  const cut = miOf(raw.months[raw.months.length - 1]);
+  const H = S.horizon;
+  const B = baseline(skuId).vals;
+  const demR = (B.drug || 0) + (B.jp || 0);
+  const demU = (B.chain || 0) + (B.gen || 0) + (B.other || 0);
+  const defs = LOTS.filter(l => l.sku === skuId && (!/計畫/.test(l.status) || S.mode === 'plan')).concat(extraDefs || []);
+  const lots = defs.map(lotInfo);
+  const invCut = raw.inv[raw.inv.length - 1] || 0;
+
+  const arrived = lots.filter(l => l.arrivalMi <= cut).sort((a, b) => b.arrivalMi - a.arrivalMi);
+  let remain = invCut;
+  arrived.forEach(l => { l.rem = Math.min(l.qty, Math.max(0, remain)); remain -= l.rem; l.initRem = l.rem; });
+  const all = arrived.slice();
+  if (remain > 0.5) {
+    all.push({ id: '舊貨', sku: skuId, status: '未登錄批次', arrival: '—', arrivalMi: -1, qty: remain, rem: remain, initRem: remain,
+      years: null, expMf: Infinity, halfMf: Infinity, expSrc: '—', qtySrc: '帳面', note: '帳面庫存超過已登錄批次的部分', sortKey: -1e9 });
+  }
+  const future = lots.filter(l => l.arrivalMi > cut);
+  future.forEach(l => { l.rem = 0; l.initRem = 0; all.push(l); });
+
+  const out = { cut, H, demR, demU, lots: all, months: [], stockEnd: [], eligEnd: [], arrive: [], unmetR: [], unmetU: [], wasteM: [], safeT: S.safety * (demR + demU), safeD: S.drugSafety * demR, snap: {}, waste: {}, short: [] };
+  const elig = (l, mm) => l.rem > 0.5 && (mm + 0.5) <= l.halfMf;
+  const sumRem = () => all.reduce((s, l) => s + l.rem, 0);
+  all.forEach(l => { out.snap[l.id] = [l.rem]; out.waste[l.id] = 0; });
+  out.months.push(ymOf(cut));
+  out.stockEnd.push(sumRem());
+  out.eligEnd.push(all.reduce((s, l) => s + (l.rem > 0.5 && (cut + 1.5) <= l.halfMf ? l.rem : 0), 0));
+  out.arrive.push(0); out.unmetR.push(0); out.unmetU.push(0); out.wasteM.push(0); out.short.push(false);
+
+  for (let t = 1; t <= H; t++) {
+    const m = cut + t;
+    let arr = 0;
+    future.forEach(l => { if (l.arrivalMi === m) { l.rem = l.qty; arr += l.qty; } });
+    // 藥妝類：只用效期足夠的批次，先到期的先出
+    let need = demR;
+    all.filter(l => elig(l, m)).sort((a, b) => a.expMf - b.expMf).forEach(l => {
+      const take = Math.min(l.rem, need); l.rem -= take; need -= take;
+    });
+    const unmetR = Math.max(0, need);
+    // 其他通路：全部批次，先到期的先出
+    need = demU;
+    all.filter(l => l.rem > 0.5).sort((a, b) => a.sortKey - b.sortKey).forEach(l => {
+      const take = Math.min(l.rem, need); l.rem -= take; need -= take;
+    });
+    const unmetU = Math.max(0, need);
+    // 到期報廢
+    let w = 0;
+    all.forEach(l => { if (l.rem > 0.5 && l.expMf <= m + 1) { w += l.rem; out.waste[l.id] += l.rem; l.rem = 0; } });
+    const stock = sumRem();
+    const eligNext = all.reduce((s, l) => s + (l.rem > 0.5 && (m + 1.5) <= l.halfMf ? l.rem : 0), 0);
+    const eligChk = eligNext + future.reduce((s, l) => s + (l.arrivalMi === m + 1 && (m + 1.5) <= l.halfMf ? l.qty : 0), 0);
+    out.months.push(ymOf(m));
+    out.stockEnd.push(stock); out.eligEnd.push(eligNext);
+    out.arrive.push(arr); out.unmetR.push(unmetR); out.unmetU.push(unmetU); out.wasteM.push(w);
+    out.short.push(stock < out.safeT || unmetR > 0.5 || unmetU > 0.5 || (demR > 0 && eligChk < out.safeD));
+    all.forEach(l => out.snap[l.id].push(l.rem));
+  }
+  return out;
+}
+function firstShort(r, fromMi) {
+  for (let t = 1; t <= r.H; t++) if (r.short[t] && r.cut + t >= fromMi) return t;
+  return null;
+}
+
+// ══════════════════════════════════════════════
+//  系統建議下單：每次 3 批，三品項自由搭配
+// ══════════════════════════════════════════════
+function planOrders() {
+  const res = { orders: [], extras: [], early: {} };
+  if (S.mode !== 'auto') return res;
+  const cutAll = Math.max.apply(null, SKUS.map(s => RAWM[s.id].months.length ? miOf(RAWM[s.id].months[RAWM[s.id].months.length - 1]) : 0));
+  const earliest = cutAll + 1 + S.lead;
+  const extrasOf = id => res.extras.filter(e => e.sku === id);
+  let seq = 0, lastNeed = -1;
+  for (let guard = 0; guard < 40; guard++) {
+    const need = Math.min.apply(null, SKUS.map(s => {
+      const r = simulate(s.id, extrasOf(s.id)); const t = firstShort(r, earliest);
+      return t == null ? 1e9 : r.cut + t;
+    }));
+    if (need >= 1e9 || need <= lastNeed) break;
+    if (need > cutAll + S.horizon) break;
+    lastNeed = need;
+    const arr = Math.max(need, earliest);
+    const alloc = { oa: 0, e50: 0, tear: 0 };
+    for (let k = 0; k < 3; k++) {
+      const cand = SKUS.map(s => {
+        const r = simulate(s.id, extrasOf(s.id)); const t = firstShort(r, earliest);
+        const demand = Math.max(1, r.demR + r.demU);
+        return { id: s.id, at: t == null ? 1e9 : r.cut + t, cover: r.stockEnd[Math.min(8, r.H)] / demand };
+      }).sort((a, b) => (a.at - b.at) || (a.cover - b.cover));
+      const pick = cand[0].id;
+      res.extras.push({ id: 'S' + (++seq), sku: pick, status: '建議', arrival: ymOf(arr), ordered: LOT_SIZE, batches: 1, note: '系統建議' });
+      alloc[pick]++;
+    }
+    res.orders.push({ arrivalMi: arr, orderMi: arr - S.lead, alloc, late: arr > need });
+  }
+  // 即使現在下單也來不及的缺口
+  SKUS.forEach(s => {
+    const r = simulate(s.id, extrasOf(s.id));
+    for (let t = 1; t <= r.H; t++) if (r.short[t] && r.cut + t < earliest) { res.early[s.id] = ymOf(r.cut + t); break; }
+  });
+  return res;
+}
+
+// ══════════════════════════════════════════════
+//  重新計算與繪製
+// ══════════════════════════════════════════════
+function recalcAll() {
+  if (!loaded) return;
+  try {
+    const savedMode = S.mode;
+    S.mode = 'auto';
+    try { SUG = planOrders(); } finally { S.mode = savedMode; }
+    PLAN = savedMode === 'auto' ? SUG : { orders: [], extras: [], early: {} };
+    SKUS.forEach(s => { SIM[s.id] = simulate(s.id, PLAN.extras.filter(e => e.sku === s.id)); });
+    renderOverview();
+    SKUS.forEach(s => renderSku(s));
+    renderPrearr();
+    renderSettings();
+  } catch (e) { console.error('[recalc] 錯誤:', e); }
+}
+function tagOf(st) {
+  if (/已到貨/.test(st)) return '<span class="tag tag-done">已到貨</span>';
+  if (/已下單/.test(st)) return '<span class="tag tag-ordered">已下單</span>';
+  if (/計畫/.test(st)) return '<span class="tag tag-plan">手排計畫</span>';
+  if (/建議/.test(st)) return '<span class="tag tag-sug">系統建議</span>';
+  return '<span class="tag" style="background:var(--surface2);color:var(--text3)">' + st + '</span>';
+}
+function drugLastMonth(l) { return l.halfMf === Infinity ? null : Math.floor(l.halfMf - 0.5); }
+
+function skuSummary(s) {
+  const r = SIM[s.id]; if (!r) return null;
+  const demTotal = r.demR + r.demU;
+  const stock0 = r.stockEnd[0];
+  const cover = demTotal > 0 ? stock0 / demTotal : null;
+  const cur = r.lots.filter(l => l.initRem > 0.5 && l.halfMf !== Infinity);
+  const earliestHalf = cur.length ? cur.reduce((a, b) => a.halfMf < b.halfMf ? a : b) : null;
+  const wasteSum = Object.values(r.waste).reduce((a, b) => a + b, 0);
+  const fs = firstShort(r, r.cut + 1);
+  const unmetRsum = r.unmetR.reduce((a, b) => a + b, 0);
+  return { r, demTotal, stock0, cover, earliestHalf, wasteSum, fs, unmetRsum };
+}
+
+function renderOverview() {
+  const el = document.getElementById('tab-overview');
+  const cards = SKUS.map(s => {
+    const x = skuSummary(s); if (!x) return '';
+    const r = x.r;
+    const coverCls = x.cover != null && x.cover < S.safety ? 'kpi-red' : 'kpi-green';
+    return '<div class="kpi-card" style="grid-column: span 2; min-width: 300px;">' +
+      '<div class="kpi-label" style="font-size:13px;color:var(--text)">' + s.name + '</div>' +
+      '<div style="display:flex;gap:18px;flex-wrap:wrap;margin-top:6px">' +
+      '<div><div class="kpi-label">目前庫存 ' + r.months[0] + '</div><div class="kpi-value kpi-blue">' + fmt(x.stock0) + '</div></div>' +
+      '<div><div class="kpi-label">可撐月數</div><div class="kpi-value ' + coverCls + '">' + (x.cover == null ? '—' : x.cover.toFixed(1)) + '</div></div>' +
+      '<div><div class="kpi-label">藥妝可出庫存</div><div class="kpi-value kpi-blue">' + fmt(r.eligEnd[0]) + '</div></div>' +
+      '</div>' +
+      '<div class="kpi-sub" style="margin-top:8px">' +
+      (x.earliestHalf ? '最早轉為不可出藥妝：' + mfStr(x.earliestHalf.halfMf) + '（' + x.earliestHalf.id + '）' : '目前庫存無藥妝效期限制') +
+      '</div></div>';
+  }).join('');
+
+  // 提醒
+  const items = [];
+  SKUS.forEach(s => {
+    const x = skuSummary(s); if (!x) return;
+    if (PLAN.early[s.id]) items.push('<b>' + s.name + '</b>：' + PLAN.early[s.id] + ' 起庫存低於安全水位，但最早到貨要 ' + ymOf(miOf(x.r.months[0]) + 1 + S.lead) + '，現在下單也來不及補。');
+    else if (x.fs != null && S.mode !== 'auto') items.push('<b>' + s.name + '</b>：' + x.r.months[x.fs] + ' 起庫存低於安全水位' + (x.unmetRsum > 0.5 ? '，藥妝缺口合計 ' + fmt(x.unmetRsum) : '') + '。');
+    if (x.wasteSum > 0.5) items.push('<b>' + s.name + '</b>：預測期內有 ' + fmt(x.wasteSum) + ' 可能在到期前賣不完（報廢風險）。');
+    if (S.mode === 'auto' && x.unmetRsum > 0.5) items.push('<b>' + s.name + '</b>：藥妝通路有 ' + fmt(x.unmetRsum) + ' 因批次效期不足而無法供應。');
+  });
+  const alertHtml = items.length
+    ? '<div class="info-box alert"><b>需要注意</b><ul>' + items.map(t => '<li>' + t + '</li>').join('') + '</ul></div>'
+    : '<div class="info-box alert green">目前方案下，預測期內三個品項都沒有缺貨、藥妝效期缺口或報廢風險。</div>';
+
+  el.innerHTML = '<div class="kpi-grid">' + cards + '</div>' + alertHtml +
+    '<div class="section-title">下單時間表（' + ({ auto: '系統建議', plan: '我的手排計畫', none: '只看已確定批次' })[S.mode] + '）</div>' +
+    orderTable() +
+    '<div class="section-title">已確定的批次</div>' + confirmedTable();
+}
+
+function orderTable() {
+  if (S.mode === 'none') return '<div class="info-box">目前只看已到貨／已下單的批次，沒有加入新的下單。切換上方「下單方案」可看系統建議或你的手排計畫。</div>';
+  let rows = [];
+  if (S.mode === 'auto') {
+    rows = PLAN.orders.map(o => ({ arrMi: o.arrivalMi, ordMi: o.orderMi, alloc: o.alloc, late: o.late }));
+  } else {
+    const g = {};
+    LOTS.filter(l => /計畫/.test(l.status)).forEach(l => {
+      const k = miOf(l.arrival); g[k] = g[k] || { arrMi: k, ordMi: k - S.lead, alloc: { oa: 0, e50: 0, tear: 0 }, late: false };
+      g[k].alloc[l.sku] += (l.batches != null ? l.batches : 1);
+    });
+    rows = Object.values(g).sort((a, b) => a.arrMi - b.arrMi);
+  }
+  if (!rows.length) return '<div class="info-box alert green">預測期內不需要新的下單。</div>';
+  const perYear = {};
+  rows.forEach(o => { const y = Math.floor(o.arrMi / 12); perYear[y] = (perYear[y] || 0) + o.alloc.oa + o.alloc.e50 + o.alloc.tear; });
+  let html = '<div class="table-card"><div class="table-scroll"><table><thead><tr>' +
+    '<th>建議下單月</th><th>預計到貨月</th><th>新鮮視OA</th><th>E視界50</th><th>人工淚液</th><th>合計批數</th><th>數量</th><th>備註</th></tr></thead><tbody>';
+  rows.forEach(o => {
+    const tot = o.alloc.oa + o.alloc.e50 + o.alloc.tear;
+    const notes = [];
+    if (tot % 3 !== 0) notes.push('<span class="danger">不是 3 的倍數</span>');
+    if (o.late) notes.push('<span class="warn">已晚於需求月，建議提前</span>');
+    const y = Math.floor(o.arrMi / 12);
+    if (perYear[y] > S.maxLots) notes.push('<span class="danger">' + y + ' 年累計 ' + perYear[y] + ' 批，超過年上限 ' + S.maxLots + ' 批</span>');
+    const cell = n => n ? '<b>' + n + '</b>' : '<span class="muted">—</span>';
+    html += '<tr><td class="col-left">📦 ' + ymOf(o.ordMi) + '</td><td class="col-center">' + ymOf(o.arrMi) + '</td>' +
+      '<td>' + cell(o.alloc.oa) + '</td><td>' + cell(o.alloc.e50) + '</td><td>' + cell(o.alloc.tear) + '</td>' +
+      '<td><b>' + tot + '</b></td><td>' + fmt(tot * LOT_SIZE) + '（折損後約 ' + fmt(tot * LOT_SIZE * (1 - S.loss / 100)) + '）</td>' +
+      '<td class="col-left">' + (notes.join('；') || '—') + '</td></tr>';
+  });
+  html += '</tbody></table></div></div>';
+  const yrs = Object.keys(perYear).sort().map(y => y + ' 年到貨 ' + perYear[y] + ' 批（上限 ' + S.maxLots + '）').join('、');
+  return html + '<div class="table-note" style="margin:-8px 4px 14px">各年度到貨批數：' + yrs + '（每次 3 批；到貨月以下單月＋前置期 ' + S.lead + ' 個月推算）</div>';
+}
+
+function confirmedTable() {
+  const rows = [];
+  SKUS.forEach(s => {
+    const r = SIM[s.id]; if (!r) return;
+    r.lots.filter(l => /已到貨|已下單|未登錄/.test(l.status)).forEach(l => rows.push({ s, l, r }));
+  });
+  if (!rows.length) return '<div class="info-box">尚無已確定批次。</div>';
+  let html = '<div class="table-card"><div class="table-scroll"><table><thead><tr>' +
+    '<th>品項</th><th>批次</th><th>狀態</th><th>到貨月</th><th>數量</th><th>目前剩餘</th><th>效期日</th><th>藥妝最後可出</th><th>預計報廢</th></tr></thead><tbody>';
+  rows.forEach(({ s, l, r }) => {
+    const dl = drugLastMonth(l);
+    html += '<tr><td class="col-left">' + s.name + '</td><td class="col-center">' + l.id + '</td><td class="col-center">' + tagOf(l.status) + '</td>' +
+      '<td class="col-center">' + l.arrival + '</td><td>' + fmt(l.qty) + '</td><td>' + fmt(l.initRem) + '</td>' +
+      '<td class="col-center">' + (l.expMf === Infinity ? '—' : mfStr(l.expMf) + ' <span class="muted">(' + l.expSrc + ')</span>') + '</td>' +
+      '<td class="col-center">' + (dl == null ? '—' : ymOf(dl)) + '</td>' +
+      '<td class="' + (r.waste[l.id] > 0.5 ? 'danger' : 'muted') + '">' + (r.waste[l.id] > 0.5 ? fmt(r.waste[l.id]) : '—') + '</td></tr>';
+  });
+  return html + '</tbody></table></div></div>';
+}
+
+function renderSku(s) {
+  const el = document.getElementById('tab-' + s.id);
+  const x = skuSummary(s); if (!x) { el.innerHTML = '<div class="info-box">此分頁沒有資料。</div>'; return; }
+  const r = x.r, b = baseline(s.id);
+  const coverCls = x.cover != null && x.cover < S.safety ? 'kpi-red' : 'kpi-green';
+  const myOrders = PLAN.orders.filter(o => o.alloc[s.id] > 0);
+  const nextOrd = myOrders.length ? myOrders[0] : null;
+
+  const kpis =
+    kpi('目前庫存 ' + r.months[0], fmt(x.stock0), 'kpi-blue', '帳面庫存') +
+    kpi('藥妝可出庫存', fmt(r.eligEnd[0]), 'kpi-blue', '剩餘效期 ≥ ' + S.ratio + '% 的庫存') +
+    kpi('月基準需求', fmt(x.demTotal), 'kpi-yellow', '藥妝類 ' + fmt(r.demR) + ' ＋ 其他 ' + fmt(r.demU)) +
+    kpi('庫存可撐月數', x.cover == null ? '—' : x.cover.toFixed(1) + ' 月', coverCls, '安全水位 ' + S.safety + ' 月') +
+    kpi('最早轉為不可出藥妝', x.earliestHalf ? mfStr(x.earliestHalf.halfMf) : '—', 'kpi-yellow', x.earliestHalf ? '批次 ' + x.earliestHalf.id : '目前庫存無限制') +
+    kpi('預計報廢量', x.wasteSum > 0.5 ? fmt(x.wasteSum) : '0', x.wasteSum > 0.5 ? 'kpi-red' : 'kpi-green', '預測期內到期未售出') +
+    kpi('首次庫存缺口', x.fs == null ? '無' : r.months[x.fs], x.fs == null ? 'kpi-green' : 'kpi-red', '低於安全水位或藥妝缺口') +
+    kpi('下次下單（含本品項）', nextOrd ? ymOf(nextOrd.orderMi) : '—', 'kpi-blue', nextOrd ? '到貨 ' + ymOf(nextOrd.arrivalMi) + '，本品項 ' + nextOrd.alloc[s.id] + ' 批' : (S.mode === 'auto' ? '預測期內不需要' : '依下單方案'));
+
+  // 基準需求設定
+  let baseInputs = CHS.map(c => '<div class="setting-group"><label>' + c.n + (c.restricted ? '（1/2規則）' : '') + '</label>' +
+    '<input type="number" min="0" step="1" id="base-' + s.id + '-' + c.k + '" placeholder="' + Math.round(b.auto[c.k] * S.growth[s.id]) + '" value="' + (S.base[s.id][c.k] != null && S.base[s.id][c.k] !== '' ? S.base[s.id][c.k] : '') + '" onchange="setBase(\'' + s.id + '\',\'' + c.k + '\',this.value)"></div>').join('');
+
+  el.innerHTML =
+    '<div class="settings-bar"><div style="width:100%"><div class="table-title">每月基準需求（件）</div>' +
+    '<div class="table-note" style="margin:4px 0 10px">預設：最近 ' + b.n + ' 個「納入基準」月份的平均（' + (b.months.join('、') || '無') + '）× 成長倍率 ' + S.growth[s.id] + '。留空＝用預設，填數字＝覆蓋。</div>' +
+    '<div class="base-grid">' + baseInputs +
+    '<div class="setting-group"><label>成長倍率</label><input type="number" min="0" step="0.05" value="' + S.growth[s.id] + '" onchange="setGrowth(\'' + s.id + '\',this.value)"></div>' +
+    '<button class="btn btn-ghost" onclick="resetBase(\'' + s.id + '\')">恢復預設</button></div></div></div>' +
+    '<div class="kpi-grid">' + kpis + '</div>' +
+    '<div class="chart-card"><div class="chart-title"><span class="dot"></span>月底庫存（依批次堆疊）· 藥妝可出庫存 · 安全庫存</div><div class="chart-wrap"><canvas id="chart-stock-' + s.id + '"></canvas></div></div>' +
+    '<div class="chart-card"><div class="chart-title"><span class="dot" style="background:var(--green)"></span>歷史出貨與預測出貨 · 到貨量</div><div class="chart-wrap"><canvas id="chart-flow-' + s.id + '"></canvas></div></div>' +
+    '<div class="table-card"><div class="table-header"><span class="table-title">批次與效期 — ' + s.name + '</span></div><div class="table-scroll">' + lotTable(s, r) + '</div></div>' +
+    '<div class="table-card"><div class="table-header"><span class="table-title">月度預測 — ' + s.name + '</span><span class="table-note">每月以 15 日為出貨基準日判斷剩餘效期</span></div><div class="table-scroll">' + monthTable(s, r) + '</div></div>';
+  drawCharts(s, r);
+}
+function kpi(label, value, cls, sub) {
+  return '<div class="kpi-card"><div class="kpi-label">' + label + '</div><div class="kpi-value ' + cls + '">' + value + '</div><div class="kpi-sub">' + sub + '</div></div>';
+}
+function lotTable(s, r) {
+  let html = '<table><thead><tr><th>批次</th><th>狀態</th><th>到貨月</th><th>數量</th><th>效期年數</th><th>效期日</th><th>藥妝轉不可出日</th><th>藥妝最後可出月</th><th>目前剩餘</th><th>預計報廢</th><th>備註</th></tr></thead><tbody>';
+  r.lots.forEach(l => {
+    const dl = drugLastMonth(l);
+    html += '<tr><td class="col-center">' + l.id + '</td><td class="col-center">' + tagOf(l.status) + '</td><td class="col-center">' + l.arrival + '</td>' +
+      '<td>' + fmt(l.qty) + ' <span class="muted">' + l.qtySrc + '</span></td><td>' + (l.years || '—') + '</td>' +
+      '<td class="col-center">' + (l.expMf === Infinity ? '—' : mfStr(l.expMf) + ' <span class="muted">' + l.expSrc + '</span>') + '</td>' +
+      '<td class="col-center">' + (l.halfMf === Infinity ? '—' : mfStr(l.halfMf)) + '</td><td class="col-center">' + (dl == null ? '—' : ymOf(dl)) + '</td>' +
+      '<td>' + fmt(l.initRem) + '</td><td class="' + (r.waste[l.id] > 0.5 ? 'danger' : 'muted') + '">' + (r.waste[l.id] > 0.5 ? fmt(r.waste[l.id]) : '—') + '</td>' +
+      '<td class="col-left muted">' + (l.note || '') + '</td></tr>';
+  });
+  return html + '</tbody></table>';
+}
+function monthTable(s, r) {
+  let html = '<table><thead><tr><th>月份</th><th>藥妝類出貨</th><th>其他通路出貨</th><th>到貨量</th><th>期末庫存</th><th>藥妝可出庫存</th><th>安全庫存</th><th>藥妝缺口</th><th>其他缺口</th><th>報廢</th><th>狀態</th></tr></thead><tbody>';
+  for (let t = 1; t <= r.H; t++) {
+    const sRz = r.demR - r.unmetR[t], sUz = r.demU - r.unmetU[t];
+    const st = r.short[t] ? '<span class="danger">⚠ 低於安全水位</span>' : '<span class="good">正常</span>';
+    html += '<tr><td class="col-left">' + r.months[t] + '</td><td>' + fmt(sRz) + '</td><td>' + fmt(sUz) + '</td>' +
+      '<td class="' + (r.arrive[t] > 0 ? '' : 'muted') + '" style="' + (r.arrive[t] > 0 ? 'color:var(--accent)' : '') + '">' + (r.arrive[t] > 0 ? fmt(r.arrive[t]) : '—') + '</td>' +
+      '<td class="' + (r.stockEnd[t] < r.safeT ? 'danger' : '') + '">' + fmt(r.stockEnd[t]) + '</td>' +
+      '<td class="' + (r.demR > 0 && r.eligEnd[t] < r.safeD ? 'warn' : '') + '">' + fmt(r.eligEnd[t]) + '</td>' +
+      '<td class="warn">' + fmt(r.safeT) + '</td>' +
+      '<td class="' + (r.unmetR[t] > 0.5 ? 'danger' : 'muted') + '">' + (r.unmetR[t] > 0.5 ? fmt(r.unmetR[t]) : '—') + '</td>' +
+      '<td class="' + (r.unmetU[t] > 0.5 ? 'danger' : 'muted') + '">' + (r.unmetU[t] > 0.5 ? fmt(r.unmetU[t]) : '—') + '</td>' +
+      '<td class="' + (r.wasteM[t] > 0.5 ? 'danger' : 'muted') + '">' + (r.wasteM[t] > 0.5 ? fmt(r.wasteM[t]) : '—') + '</td>' +
+      '<td class="col-center">' + st + '</td></tr>';
+  }
+  return html + '</tbody></table>';
+}
+
+function chartColors() {
+  const dark = document.documentElement.getAttribute('data-theme') === 'dark';
+  return { text: dark ? '#9aa0c4' : '#4a5568', grid: dark ? 'rgba(46,51,80,.6)' : 'rgba(226,232,240,.9)' };
+}
+function drawCharts(s, r) {
+  if (typeof Chart === 'undefined') return;
+  const cc = chartColors();
+  Chart.defaults.color = cc.text; Chart.defaults.borderColor = cc.grid;
+  const labels = r.months;
+  const baseOpts = (stacked) => ({
+    responsive: true, maintainAspectRatio: false,
+    plugins: { legend: { labels: { boxWidth: 12, font: { size: 11 } } },
+      tooltip: { callbacks: { label: c => ' ' + c.dataset.label + ': ' + (c.parsed.y != null ? Math.round(c.parsed.y).toLocaleString() : '—') } } },
+    scales: { x: { stacked, ticks: { maxRotation: 60, font: { size: 10 } }, grid: { color: cc.grid } },
+              y: { stacked, ticks: { font: { size: 10 }, callback: v => Math.abs(v) >= 1000 ? (v / 1000).toFixed(0) + 'K' : v }, grid: { color: cc.grid } } }
+  });
+  const ds = [];
+  let ci = 0;
+  r.lots.forEach(l => {
+    const data = r.snap[l.id];
+    if (!data.some(v => v > 0.5)) return;
+    const col = PALETTE[ci++ % PALETTE.length];
+    ds.push({ type: 'bar', label: l.id + (l.arrival !== '—' ? ' ' + l.arrival + '到貨' : ''), data, backgroundColor: col + (/計畫|建議/.test(l.status) ? '77' : 'cc'), stack: 'lots', order: 3 });
+  });
+  ds.push({ type: 'line', label: '藥妝可出庫存', data: r.eligEnd, stack: 'elig', borderColor: '#db2777', borderWidth: 2.5, pointRadius: 2, fill: false, tension: .2, order: 1 });
+  ds.push({ type: 'line', label: '安全庫存', data: labels.map(() => r.safeT), stack: 'safe', borderColor: '#d97706', borderWidth: 2, borderDash: [6, 3], pointRadius: 0, fill: false, order: 0 });
+  if (charts['stock-' + s.id]) charts['stock-' + s.id].destroy();
+  charts['stock-' + s.id] = new Chart(document.getElementById('chart-stock-' + s.id).getContext('2d'), { data: { labels, datasets: ds }, options: baseOpts(true) });
+
+  // 歷史＋預測出貨
+  const raw = RAWM[s.id];
+  const nh = Math.min(12, raw.months.length);
+  const hLabels = raw.months.slice(-nh);
+  const hVals = raw.total.slice(-nh).map((v, i) => v != null ? v : CHS.reduce((a, c) => a + (raw.ch[c.k][raw.months.length - nh + i] || 0), 0));
+  const fLabels = labels.slice(1);
+  const L2 = hLabels.concat(fLabels);
+  const histData = L2.map((_, i) => i < nh ? hVals[i] : null);
+  const foreData = L2.map((_, i) => i < nh ? null : r.demR + r.demU - r.unmetR[i - nh + 1] - r.unmetU[i - nh + 1]);
+  const arrData = L2.map((_, i) => i < nh ? null : r.arrive[i - nh + 1]);
+  if (charts['flow-' + s.id]) charts['flow-' + s.id].destroy();
+  charts['flow-' + s.id] = new Chart(document.getElementById('chart-flow-' + s.id).getContext('2d'), {
+    data: { labels: L2, datasets: [
+      { type: 'bar', label: '到貨量', data: arrData, backgroundColor: 'rgba(124,58,237,.5)', order: 3 },
+      { type: 'line', label: '歷史出貨', data: histData, borderColor: '#16a34a', borderWidth: 2.5, pointRadius: 3, fill: false, tension: .2, order: 1 },
+      { type: 'line', label: '預測出貨', data: foreData, borderColor: '#2563eb', borderWidth: 2, borderDash: [5, 4], pointRadius: 2, fill: false, tension: .2, order: 2 },
+    ] }, options: baseOpts(false)
+  });
+}
+
+
+// ══════════════════════════════════════════════
+//  預排批次：系統建議的未來批次（格式同 Sheet「批次」分頁）
+// ══════════════════════════════════════════════
+function skuShort(id) { return id === 'oa' ? 'OA' : id === 'e50' ? 'E50' : '人工淚液'; }
+function scenario(arrivalYM, years) {
+  const L = years * 12;
+  const expMf = miOf(arrivalYM) - S.prodGap + L;
+  const half = expMf - L * S.ratio / 100;
+  return { exp: mfStr(expMf), drugLast: ymOf(Math.floor(half - 0.5)) };
+}
+function copyText(id) {
+  const ta = document.getElementById(id);
+  ta.select();
+  let ok = false;
+  try { ok = document.execCommand('copy'); } catch (e) {}
+  if (!ok && navigator.clipboard) { navigator.clipboard.writeText(ta.value).then(() => flashMsg('✓ 已複製'), () => flashMsg('請手動複製下方文字')); return; }
+  flashMsg(ok ? '✓ 已複製' : '請手動複製下方文字');
+}
+function flashMsg(t) { const m = document.getElementById('copyMsg'); if (m) { m.textContent = t; m.classList.add('visible'); setTimeout(() => m.classList.remove('visible'), 1800); } }
+function downloadCSV() {
+  const ta = document.getElementById('tsvBox'); if (!ta) return;
+  const csv = ta.value.split('\n').map(l => l.split('\t').map(c => '"' + c.replace(/"/g, '""') + '"').join(',')).join('\n');
+  const a = document.createElement('a');
+  a.href = URL.createObjectURL(new Blob(['﻿' + csv], { type: 'text/csv;charset=utf-8' }));
+  a.download = '預排批次.csv'; a.click();
+}
+function renderPrearr() {
+  const el = document.getElementById('tab-prearr');
+  const ex = SUG.extras.slice().sort((a, b) => miOf(a.arrival) - miOf(b.arrival));
+  if (!ex.length) { el.innerHTML = '<div class="info-box alert green">預測期內不需要新的下單，沒有預排批次。</div>'; return; }
+  const groups = {};
+  ex.forEach(e => { const k = e.arrival + '|' + e.sku; groups[k] = groups[k] || { arrival: e.arrival, sku: e.sku, n: 0 }; groups[k].n++; });
+  const rows = Object.values(groups).sort((a, b) => a.arrival.localeCompare(b.arrival) || SKUS.findIndex(x => x.id === a.sku) - SKUS.findIndex(x => x.id === b.sku));
+  const maxL = Math.max.apply(null, [0].concat(LOTS.map(l => parseInt(String(l.id).replace(/\D/g, '')) || 0)));
+  rows.forEach((g, i) => { g.id = 'L' + pad(maxL + i + 1); });
+  const arrTotal = {};
+  rows.forEach(g => { arrTotal[g.arrival] = (arrTotal[g.arrival] || 0) + g.n; });
+
+  let html = '<div class="info-box alert"><b>這是系統根據目前庫存、每月基準需求和效期規則算出的預排，供你參考是否下單。</b>' +
+    '<ul><li>到貨月 = 下單月 + ' + S.lead + ' 個月；一次下單 3 批，依最急迫的品項分配。</li>' +
+    '<li>效期還沒確定，所以 2 年、2.5 年、3 年三種情況都列出，並算出每種情況下「藥妝最後可出月」。原廠通知後，到「批次」分頁填效期年數與效期日即可。</li>' +
+    '<li>想貼進 Google Sheet 的「批次」分頁，請按下方「複製成 Sheet 格式」，貼在最後一列之後。狀態為「計畫」，切換上方「下單方案」為「我的手排計畫」就能看到加入這些批次後的庫存變化。</li>' +
+    '<li>真的下單時，把該列狀態改成「已下單」。</li></ul></div>';
+  const ords = SUG.orders.slice().sort((a, b) => a.arrivalMi - b.arrivalMi);
+  html += '<div class="table-card"><div class="table-header"><span class="table-title">下單時間表（系統建議）</span><span class="table-note">每個月要下哪個品項、幾批</span></div><div class="table-scroll"><table><thead><tr>' +
+    '<th>建議下單月</th><th>預計到貨月</th><th>新鮮視OA</th><th>E視界50</th><th>人工淚液</th><th>合計批數</th><th>數量</th>' +
+    '<th>效期 2 年<br><span class="muted">藥妝最後可出月</span></th><th>效期 2.5 年</th><th>效期 3 年</th></tr></thead><tbody>';
+  ords.forEach(o => {
+    const tot = o.alloc.oa + o.alloc.e50 + o.alloc.tear;
+    const ym = ymOf(o.arrivalMi);
+    const cell = n => n ? '<b>' + n + '</b>' : '<span class="muted">—</span>';
+    const sc = y => '<td class="col-center"><span class="warn">' + scenario(ym, y).drugLast + '</span></td>';
+    html += '<tr><td class="col-left">📦 ' + ymOf(o.orderMi) + '</td><td class="col-center">' + ym + '</td>' +
+      '<td>' + cell(o.alloc.oa) + '</td><td>' + cell(o.alloc.e50) + '</td><td>' + cell(o.alloc.tear) + '</td>' +
+      '<td><b>' + tot + '</b></td><td>' + fmt(tot * LOT_SIZE) + '（折損後約 ' + fmt(tot * LOT_SIZE * (1 - S.loss / 100)) + '）</td>' +
+      sc(2) + sc(2.5) + sc(3) + '</tr>';
+  });
+  html += '</tbody></table></div></div>';
+  html += '<div class="table-card"><div class="table-header"><span class="table-title">批次明細（含效期日，供貼進 Sheet）</span><span class="table-note">以預設效期 ' + S.defYears + ' 年、生產到到貨 ' + S.prodGap + ' 個月推算</span></div><div class="table-scroll"><table><thead><tr>' +
+    '<th>預排編號</th><th>品項</th><th>建議下單月</th><th>預計到貨月</th><th>批數</th><th>預估入庫量</th>' +
+    '<th>效期 2 年<br><span class="muted">效期日｜藥妝最後可出月</span></th><th>效期 2.5 年</th><th>效期 3 年</th><th>同次下單合計</th></tr></thead><tbody>';
+  rows.forEach(g => {
+    const cell = yrs => { const c = scenario(g.arrival, yrs); return '<td class="col-center">' + c.exp + '<br><span class="warn">藥妝至 ' + c.drugLast + '</span></td>'; };
+    html += '<tr><td class="col-center">' + g.id + '</td><td class="col-left">' + skuName(g.sku) + '</td><td class="col-center">📦 ' + ymOf(miOf(g.arrival) - S.lead) + '</td>' +
+      '<td class="col-center">' + g.arrival + '</td><td><b>' + g.n + '</b></td><td>' + fmt(g.n * LOT_SIZE * (1 - S.loss / 100)) + '</td>' +
+      cell(2) + cell(2.5) + cell(3) + '<td class="col-center">' + arrTotal[g.arrival] + ' 批</td></tr>';
+  });
+  html += '</tbody></table></div></div>';
+
+  const lines = rows.map(g => [g.id, skuShort(g.sku), '計畫', g.arrival, g.n, g.n * LOT_SIZE, '', S.defYears, '', '系統預排；效期日待原廠通知'].join('\t'));
+  html += '<div class="table-card"><div class="table-header"><span class="table-title">貼到 Google Sheet「批次」分頁</span>' +
+    '<span><button class="btn btn-primary" onclick="copyText(\'tsvBox\')">📋 複製成 Sheet 格式</button> <button class="btn btn-ghost" onclick="downloadCSV()">⬇ 下載 CSV</button> <span class="save-indicator" id="copyMsg"></span></span></div>' +
+    '<div style="padding:14px 20px"><textarea id="tsvBox" readonly rows="' + (rows.length + 1) + '" style="width:100%;background:var(--surface2);color:var(--text);border:1px solid var(--border);border-radius:8px;padding:10px;font-family:monospace;font-size:12px;white-space:pre">' + lines.join('\n') + '</textarea>' +
+    '<div class="table-note" style="margin-top:6px">欄位順序：批次編號、品項、狀態、到貨月、下單批數、下單數量、實際到貨量、效期年數、效期日、備註。效期日留空，系統會用效期年數推算。</div></div></div>';
+  el.innerHTML = html;
+}
+
+// ══════════════════════════════════════════════
+//  設定
+// ══════════════════════════════════════════════
+const GLOBAL_FIELDS = [
+  ['lead', '下單到到貨（月）', 1, '預設 2'],
+  ['loss', '到貨折損率（%）', 0.5, '3 批實際到貨約折損 4.5%'],
+  ['defYears', '預設效期年數', 0.5, '2、2.5 或 3；批次沒填時使用'],
+  ['prodGap', '生產到到貨（月）', 1, '沒填效期日時推算用，依 OA、E50 實例為 3'],
+  ['ratio', '藥妝允收剩餘效期（%）', 5, '預設 50（1/2）'],
+  ['safety', '安全庫存（月）', 0.5, '以月基準需求計'],
+  ['drugSafety', '藥妝可出庫存下限（月）', 0.5, '藥妝類需求的幾個月'],
+  ['baseMonths', '基準取樣月數', 1, '取最近幾個「納入基準」月份'],
+  ['maxLots', '每年供應批數上限', 1, '超過會在下單時間表標紅提醒'],
+  ['horizon', '預測月數', 12, '12、24 或 36'],
+];
+function renderSettings() {
+  const el = document.getElementById('tab-settings');
+  el.innerHTML = '<div class="settings-bar"><div style="width:100%"><div class="table-title">全域設定</div><div class="table-note" style="margin:4px 0 12px">修改後立即重新計算，並儲存在這個瀏覽器。</div><div class="base-grid">' +
+    GLOBAL_FIELDS.map(f => '<div class="setting-group"><label>' + f[1] + '</label><input type="number" step="' + f[2] + '" value="' + S[f[0]] + '" onchange="setGlobal(\'' + f[0] + '\',this.value)"><span class="hint">' + f[3] + '</span></div>').join('') +
+    '</div><div style="margin-top:14px"><button class="btn btn-ghost" onclick="resetAll()">全部恢復預設</button> <span class="save-indicator" id="savedMsg">✓ 已儲存</span></div></div></div>' +
+    '<div class="info-box"><b>規則說明</b><ul style="margin:6px 0 0 18px">' +
+    '<li>一批 = ' + fmt(LOT_SIZE) + '；一次下單 3 批，三個品項可自由搭配。</li>' +
+    '<li>出貨先進先出：先到期的批次先出。藥妝、日本藥妝只能使用「剩餘效期 ≥ ' + S.ratio + '%」的批次，其他通路沒有限制。</li>' +
+    '<li>批次「效期日」有填就用實際日期；沒填則用「到貨月 − ' + S.prodGap + ' 個月 ＋ 效期年數」推算。</li>' +
+    '<li>預測的月需求是固定的基準值（沒有季節性），可到各品項分頁覆蓋。</li>' +
+    '<li>系統建議：當庫存預計低於安全庫存、或藥妝可出庫存不足時，安排一次 3 批的下單，並依最急迫的品項分配。</li></ul></div>';
+}
+function persist() {
+  try { localStorage.setItem(STORE_KEY, JSON.stringify(S)); const m = document.getElementById('savedMsg'); if (m) { m.classList.add('visible'); setTimeout(() => m.classList.remove('visible'), 1200); } } catch (e) {}
+}
+function loadSettings() {
+  try {
+    const raw = localStorage.getItem(STORE_KEY);
+    if (raw) { const o = JSON.parse(raw); S = Object.assign(JSON.parse(JSON.stringify(DEFAULTS)), o); S.growth = Object.assign({}, DEFAULTS.growth, o.growth || {}); S.base = Object.assign({ oa: {}, e50: {}, tear: {} }, o.base || {}); }
+  } catch (e) {}
+  document.getElementById('modeSel').value = S.mode;
+}
+function setMode(v) { S.mode = v; persist(); recalcAll(); }
+function setGlobal(k, v) { const x = parseFloat(v); if (!isNaN(x) && x >= 0) { S[k] = x; persist(); recalcAll(); } }
+function setGrowth(id, v) { const x = parseFloat(v); if (!isNaN(x) && x >= 0) { S.growth[id] = x; persist(); recalcAll(); } }
+function setBase(id, k, v) { if (v === '' || v == null) delete S.base[id][k]; else { const x = parseFloat(v); if (!isNaN(x) && x >= 0) S.base[id][k] = x; } persist(); recalcAll(); }
+function resetBase(id) { S.base[id] = {}; S.growth[id] = 1; persist(); recalcAll(); }
+function resetAll() { const m = S.mode; S = JSON.parse(JSON.stringify(DEFAULTS)); S.mode = m; persist(); recalcAll(); }
+
+// ══════════════════════════════════════════════
+//  分頁與主題
+// ══════════════════════════════════════════════
+function switchTab(id) {
+  document.querySelectorAll('.tab-panel').forEach(p => p.classList.remove('active'));
+  document.getElementById('tab-' + id).classList.add('active');
+  const order = ['overview', 'oa', 'e50', 'tear', 'prearr', 'settings'];
+  document.querySelectorAll('.tab-btn').forEach((b, i) => b.classList.toggle('active', order[i] === id));
+  if (loaded) recalcAll();
+}
+function setTheme(t) {
+  document.documentElement.setAttribute('data-theme', t);
+  document.getElementById('themeBtn').textContent = t === 'dark' ? '☀️ 亮色' : '🌙 暗色';
+  try { localStorage.setItem('eyedrops_theme', t); } catch (e) {}
+  if (loaded) recalcAll();
+}
+function toggleTheme() { setTheme(document.documentElement.getAttribute('data-theme') === 'dark' ? 'light' : 'dark'); }
+
+// ══════════════════════════════════════════════
+//  啟動
+// ══════════════════════════════════════════════
+loadSettings();
+(function () { let t = 'light'; try { t = localStorage.getItem('eyedrops_theme') || 'light'; } catch (e) {} setTheme(t); })();
+loadAll();
+</script>
+</body>
+</html>
